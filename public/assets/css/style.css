@@ -1420,3 +1420,121 @@ meter {
   display: block;
   pointer-events: none;
 }
+
+/* v33: fullscreen real no controle e TV responsiva/compacta */
+.landscape-warning {
+  cursor: pointer;
+  user-select: none;
+}
+.landscape-warning div::after {
+  content: "Toque aqui para entrar em tela cheia";
+  display: inline-block;
+  margin-top: 18px;
+  padding: 12px 18px;
+  border-radius: 999px;
+  background: rgba(240, 184, 79, 0.95);
+  color: #1c1308;
+  font-size: 14px;
+  font-weight: 950;
+  box-shadow: 0 10px 28px rgba(0,0,0,.28);
+}
+
+.table-shell {
+  height: 100dvh;
+  min-height: 100dvh;
+  grid-template-rows: auto auto minmax(0, 1fr) !important;
+  overflow: hidden;
+}
+.topbar {
+  padding: clamp(8px, 1.2vh, 12px) clamp(10px, 2vw, 22px) !important;
+  gap: clamp(8px, 1vw, 14px) !important;
+}
+.brand-mark { width: clamp(1.55rem, 2.6vw, 2rem) !important; }
+.brand h1 { font-size: clamp(1rem, 1.55vw, 1.28rem) !important; }
+.brand p { font-size: clamp(.68rem, .95vw, .82rem) !important; }
+.room-panel {
+  width: min(32rem, 48vw) !important;
+  padding: .38rem !important;
+}
+.room-info-clean > strong { font-size: .92rem !important; }
+.room-links {
+  grid-template-columns: repeat(3, minmax(5.7rem, 1fr)) !important;
+  gap: .32rem !important;
+}
+.room-panel a.room-action-card {
+  min-height: 4.05rem !important;
+  padding: .32rem !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+}
+.room-action-icon { font-size: .9rem !important; }
+.room-panel a.room-action-card .room-action-title { font-size: .58rem !important; }
+.room-panel a.room-action-card small { font-size: .52rem !important; }
+.room-panel a.room-action-card .mini-qr { width: 2.28rem !important; }
+.scorebar {
+  margin: .35rem clamp(.65rem, 1.7vw, 1.3rem) !important;
+  padding: .34rem .5rem !important;
+  gap: .45rem !important;
+  min-height: 0 !important;
+  display: grid !important;
+  grid-template-columns: auto auto auto auto auto minmax(220px, 1fr);
+  align-items: center;
+}
+.scorebar .label { font-size: .52rem !important; margin-bottom: .04rem !important; }
+.scorebar strong { font-size: .82rem !important; line-height: 1 !important; }
+.scorebar meter { width: min(7rem, 11vw) !important; height: .42rem !important; }
+.assignments {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: .28rem !important;
+}
+.assignment-card {
+  min-height: 2.15rem !important;
+  padding: .24rem .35rem !important;
+}
+.assignment-card strong { font-size: .68rem !important; }
+.assignment-card small { font-size: .54rem !important; }
+.assignment-card .remaining-balls { margin-top: .05rem !important; }
+.remaining-balls img, .ball-hud-icon { width: .92rem !important; height: .92rem !important; }
+#scene {
+  min-height: 0 !important;
+  height: 100% !important;
+}
+
+@media (max-width: 900px), (max-height: 620px) {
+  .table-shell {
+    grid-template-rows: auto auto minmax(0, 1fr) !important;
+  }
+  .topbar {
+    align-items: stretch !important;
+    flex-direction: column !important;
+    padding: 8px 10px !important;
+  }
+  .brand { display: none !important; }
+  .room-panel {
+    width: 100% !important;
+    padding: .32rem !important;
+  }
+  .room-info-clean > .label { font-size: .55rem !important; }
+  .room-info-clean > strong { font-size: .82rem !important; margin-bottom: .22rem !important; }
+  .room-links {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  .room-panel a.room-action-card {
+    min-height: 3.6rem !important;
+    padding: .28rem !important;
+  }
+  .room-panel a.room-action-card .mini-qr { width: 2rem !important; }
+  .scorebar {
+    margin: .22rem 8px !important;
+    grid-template-columns: repeat(5, auto) !important;
+    overflow-x: auto;
+    border-radius: 8px !important;
+  }
+  .assignments { display: none !important; }
+}
+
+@media (max-width: 540px) {
+  .room-panel a.room-action-card .room-action-title { font-size: .52rem !important; }
+  .room-panel a.room-action-card small { font-size: .48rem !important; }
+  .room-panel a.room-action-card .mini-qr { width: 1.8rem !important; }
+  .scorebar { grid-template-columns: repeat(3, auto) !important; }
+}

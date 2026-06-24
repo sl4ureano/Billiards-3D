@@ -442,9 +442,27 @@
   }
 
   function installFullscreenUnlock() {
-    const unlock = async () => {
-      document.body.classList.add("controller-unlocked");
-      if (startOverlay) startOverlay.classList.add("is-hidden");
+    let unlocked = false;
+
+    const unlock = async (event) => {
+      if (unlocked) return;
+      unlocked = true;
+
+      // Fullscreen precisa ser chamado primeiro, sincronizado com o toque/clique do usuário.
+      // Se chamar orientation.lock antes, o Chrome Android perde a ativação do usuário e bloqueia.
+      let fullscreenOk = false;
+      try {
+        const target = document.documentElement;
+        if (!document.fullscreenElement && target.requestFullscreen) {
+          const result = target.requestFullscreen({ navigationUI: "hide" });
+          fullscreenOk = true;
+          if (result?.catch) result.catch(() => {});
+        } else {
+          fullscreenOk = true;
+        }
+      } catch {
+        fullscreenOk = false;
+      }
 
       try {
         if (screen.orientation?.lock) {
@@ -454,23 +472,26 @@
         // Nem todo navegador permite travar orientação; o aviso visual cobre esse caso.
       }
 
-      try {
-        const target = document.documentElement;
-        if (!document.fullscreenElement && target.requestFullscreen) {
-          await target.requestFullscreen({ navigationUI: "hide" });
-        }
-      } catch {
-        // Fullscreen depende da permissão do navegador; o controle continua funcionando.
+      document.body.classList.add("controller-unlocked");
+      if (startOverlay) startOverlay.classList.add("is-hidden");
+
+      // Se o navegador recusou fullscreen, deixa um botão discreto para tentar de novo.
+      if (!fullscreenOk && startOverlay) {
+        unlocked = false;
+        startOverlay.classList.remove("is-hidden");
+        document.body.classList.remove("controller-unlocked");
       }
     };
 
-    if (startOverlay) {
-      startOverlay.addEventListener("click", unlock, { once: true });
-      startOverlay.addEventListener("touchstart", unlock, { once: true, passive: true });
-    }
+    const bindUnlock = (element) => {
+      if (!element) return;
+      element.addEventListener("click", unlock);
+      element.addEventListener("pointerup", unlock);
+      element.addEventListener("touchend", unlock, { passive: true });
+    };
 
-    window.addEventListener("pointerdown", unlock, { once: true, passive: true });
-    window.addEventListener("touchstart", unlock, { once: true, passive: true });
+    bindUnlock(startOverlay);
+    bindUnlock(document.querySelector(".landscape-warning"));
   }
 
   function parseMessage(data) {
