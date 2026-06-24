@@ -2145,20 +2145,33 @@ function addTableBase(material) {
 }
 
 function buildRoom() {
-  const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x15191e, roughness: 0.86, side: THREE.DoubleSide });
-  const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x17191b, roughness: 0.76 });
+  // Sala compacta estilo bar/salão de bilhar. Mantém abertura superior para vista de cima
+  // e evita que a câmera atravesse um teto escuro ao usar zoom out.
+  const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x201815, roughness: 0.82, side: THREE.DoubleSide });
+  const accentWallMaterial = new THREE.MeshStandardMaterial({ color: 0x2b1c17, roughness: 0.8, side: THREE.DoubleSide });
+  const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x2a221d, roughness: 0.72 });
 
-  const roomWidth = 82;
-  const roomDepth = 72;
-  const wallHeight = 7.8;
-  const wallY = 2.9;
+  const roomWidth = 19;
+  const roomDepth = 14.5;
+  const wallHeight = 4.2;
+  const wallY = 1.0;
 
-  // Paredes ficam bem longe e não há parede frontal perto da câmera.
-  // Assim o usuário pode afastar/rotacionar sem a câmera entrar numa parede preta.
-  const backWall = new THREE.Mesh(new THREE.PlaneGeometry(roomWidth, wallHeight), wallMaterial);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(roomWidth + 1.4, roomDepth + 1.4), floorMaterial);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -1.34;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  const backWall = new THREE.Mesh(new THREE.PlaneGeometry(roomWidth, wallHeight), accentWallMaterial);
   backWall.position.set(0, wallY, -roomDepth / 2);
   backWall.receiveShadow = true;
   scene.add(backWall);
+
+  const frontWallLow = new THREE.Mesh(new THREE.PlaneGeometry(roomWidth, wallHeight * 0.72), wallMaterial);
+  frontWallLow.position.set(0, wallY - 0.55, roomDepth / 2);
+  frontWallLow.rotation.y = Math.PI;
+  frontWallLow.receiveShadow = true;
+  scene.add(frontWallLow);
 
   const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(roomDepth, wallHeight), wallMaterial);
   leftWall.rotation.y = Math.PI / 2;
@@ -2166,34 +2179,184 @@ function buildRoom() {
   leftWall.receiveShadow = true;
   scene.add(leftWall);
 
-  const rightWall = leftWall.clone();
-  rightWall.position.x = roomWidth / 2;
+  const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(roomDepth, wallHeight), wallMaterial);
+  rightWall.rotation.y = -Math.PI / 2;
+  rightWall.position.set(roomWidth / 2, wallY, 0);
+  rightWall.receiveShadow = true;
   scene.add(rightWall);
 
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(roomWidth + 18, roomDepth + 18), floorMaterial);
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = -1.32;
-  floor.receiveShadow = true;
-  scene.add(floor);
+  // Rodapés e molduras para dar escala sem fechar o campo de visão superior.
+  addWallTrim(roomWidth, roomDepth);
 
-  addBottleShelf(-5.2, -13.5);
-  addBottleShelf(5.2, -13.5);
+  // Bar e ambientação.
+  addBarCounter(5.8, -6.35);
+  addBottleShelf(5.8, -6.95);
+  addBottleShelf(1.7, -6.95);
+  addTrophyShelf(-8.85, -2.5);
+  addWallFrames(-3.4, -7.18);
 
-  const ceiling = new THREE.Mesh(
-    new THREE.PlaneGeometry(roomWidth + 18, roomDepth + 18),
-    new THREE.MeshStandardMaterial({ color: 0x101316, roughness: 0.92, side: THREE.DoubleSide })
+  addBarStool(3.9, -4.95);
+  addBarStool(5.25, -4.95);
+  addBarStool(6.6, -4.95);
+
+  addSpectator(-6.6, -4.9, 0.35, 0x315b8a);
+  addSpectator(-7.6, 2.9, 1.15, 0x7a4830);
+  addSpectator(7.7, 2.6, -1.25, 0x3f7a4b);
+  addSpectator(6.8, -2.0, -0.55, 0x73518d);
+  addSeatedPerson(5.25, -5.05, Math.PI, 0x284e74);
+
+  // Luzes quentes do bar + luz ambiente lateral, mais aconchegante.
+  const barLight = new THREE.PointLight(0xff9f4a, 1.55, 12);
+  barLight.position.set(5.5, 2.45, -5.8);
+  scene.add(barLight);
+
+  const wallGlow = new THREE.PointLight(0xffd39a, 0.85, 13);
+  wallGlow.position.set(-7.9, 2.1, -2.1);
+  scene.add(wallGlow);
+
+  const softFill = new THREE.HemisphereLight(0xffe5c3, 0x1a2026, 0.28);
+  scene.add(softFill);
+}
+
+function addWallTrim(roomWidth, roomDepth) {
+  const mat = new THREE.MeshStandardMaterial({ color: 0x110d0b, roughness: 0.65 });
+  const baseH = 0.12;
+  const baseY = -1.02;
+  const back = new THREE.Mesh(new THREE.BoxGeometry(roomWidth, baseH, 0.12), mat);
+  back.position.set(0, baseY, -roomDepth / 2 + 0.06);
+  scene.add(back);
+  const front = back.clone();
+  front.position.z = roomDepth / 2 - 0.06;
+  scene.add(front);
+  const left = new THREE.Mesh(new THREE.BoxGeometry(0.12, baseH, roomDepth), mat);
+  left.position.set(-roomWidth / 2 + 0.06, baseY, 0);
+  scene.add(left);
+  const right = left.clone();
+  right.position.x = roomWidth / 2 - 0.06;
+  scene.add(right);
+}
+
+function addBarCounter(x, z) {
+  const wood = new THREE.MeshStandardMaterial({ color: 0x4b2615, roughness: 0.48, metalness: 0.03 });
+  const darkWood = new THREE.MeshStandardMaterial({ color: 0x24110b, roughness: 0.55 });
+  const brass = new THREE.MeshStandardMaterial({ color: 0xc28a38, roughness: 0.28, metalness: 0.55 });
+
+  const counter = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.95, 0.82), wood);
+  counter.position.set(x, -0.83, z + 0.55);
+  counter.castShadow = true;
+  counter.receiveShadow = true;
+  scene.add(counter);
+
+  const top = new THREE.Mesh(new THREE.BoxGeometry(5.75, 0.12, 1.0), darkWood);
+  top.position.set(x, -0.28, z + 0.55);
+  top.castShadow = true;
+  top.receiveShadow = true;
+  scene.add(top);
+
+  const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 5.6, 18), brass);
+  rail.rotation.z = Math.PI / 2;
+  rail.position.set(x, -0.38, z + 1.12);
+  rail.castShadow = true;
+  scene.add(rail);
+
+  const backPanel = new THREE.Mesh(new THREE.BoxGeometry(5.9, 1.75, 0.18), new THREE.MeshStandardMaterial({ color: 0x1a0f0b, roughness: 0.62 }));
+  backPanel.position.set(x, 0.4, z - 0.18);
+  backPanel.receiveShadow = true;
+  scene.add(backPanel);
+}
+
+function addBarStool(x, z) {
+  const seatMat = new THREE.MeshStandardMaterial({ color: 0x3b1d13, roughness: 0.48 });
+  const metal = new THREE.MeshStandardMaterial({ color: 0xb79056, roughness: 0.24, metalness: 0.65 });
+  const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.34, 0.1, 24), seatMat);
+  seat.position.set(x, -0.52, z);
+  seat.castShadow = true;
+  scene.add(seat);
+  const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.76, 14), metal);
+  leg.position.set(x, -0.94, z);
+  leg.castShadow = true;
+  scene.add(leg);
+  const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.035, 18), metal);
+  foot.position.set(x, -1.31, z);
+  foot.castShadow = true;
+  scene.add(foot);
+}
+
+function addTrophyShelf(x, z) {
+  const shelfMat = new THREE.MeshStandardMaterial({ color: 0x24130d, roughness: 0.52 });
+  const gold = new THREE.MeshStandardMaterial({ color: 0xd7a73a, roughness: 0.24, metalness: 0.8 });
+  const silver = new THREE.MeshStandardMaterial({ color: 0xcfd5d6, roughness: 0.22, metalness: 0.75 });
+  for (let row = 0; row < 3; row++) {
+    const shelf = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.1, 3.7), shelfMat);
+    shelf.position.set(x, 0.2 + row * 0.62, z + 0.2);
+    shelf.rotation.y = Math.PI / 2;
+    scene.add(shelf);
+    for (let i = 0; i < 4; i++) {
+      addTrophy(x + 0.16, 0.43 + row * 0.62, z - 1.35 + i * 0.9, (i + row) % 2 ? silver : gold);
+    }
+  }
+}
+
+function addTrophy(x, y, z, material) {
+  const cup = new THREE.Group();
+  const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.16, 0.22, 20), material);
+  bowl.position.y = 0.14;
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.05, 0.16, 14), material);
+  stem.position.y = -0.03;
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.06, 0.18), material);
+  base.position.y = -0.14;
+  cup.add(bowl, stem, base);
+  cup.position.set(x, y, z);
+  cup.rotation.y = Math.PI / 2;
+  cup.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  scene.add(cup);
+}
+
+function addWallFrames(x, z) {
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x0e0907, roughness: 0.5 });
+  const feltMat = new THREE.MeshStandardMaterial({ color: 0x1f5c42, roughness: 0.8 });
+  for (let i = 0; i < 3; i++) {
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.75, 0.06), frameMat);
+    frame.position.set(x + i * 1.45, 1.65, z);
+    scene.add(frame);
+    const inner = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.52, 0.065), feltMat);
+    inner.position.set(x + i * 1.45, 1.65, z + 0.01);
+    scene.add(inner);
+  }
+}
+
+function addSpectator(x, z, facing = 0, shirtColor = 0x446688) {
+  const group = new THREE.Group();
+  const skin = new THREE.MeshStandardMaterial({ color: 0xd3a071, roughness: 0.62 });
+  const shirt = new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.7 });
+  const pants = new THREE.MeshStandardMaterial({ color: 0x1d2430, roughness: 0.75 });
+  const hair = new THREE.MeshStandardMaterial({ color: 0x1b130f, roughness: 0.65 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, 0.76, 16), shirt);
+  body.position.y = -0.55;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 18, 14), skin);
+  head.position.y = -0.05;
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.185, 18, 8, 0, Math.PI * 2, 0, Math.PI / 2), hair);
+  cap.position.y = 0.02;
+  const legA = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.065, 0.55, 10), pants);
+  legA.position.set(-0.08, -1.2, 0);
+  const legB = legA.clone();
+  legB.position.x = 0.08;
+  group.add(body, head, cap, legA, legB);
+  group.position.set(x, 0, z);
+  group.rotation.y = facing;
+  group.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  scene.add(group);
+}
+
+function addSeatedPerson(x, z, facing = 0, shirtColor = 0x446688) {
+  addSpectator(x, z, facing, shirtColor);
+  const shadowSeat = new THREE.Mesh(
+    new THREE.BoxGeometry(0.46, 0.08, 0.4),
+    new THREE.MeshStandardMaterial({ color: 0x2b1710, roughness: 0.5 })
   );
-  ceiling.rotation.x = Math.PI / 2;
-  ceiling.position.y = 7.4;
-  scene.add(ceiling);
-
-  const fillLightA = new THREE.PointLight(0x8fb8ff, 0.24, 48);
-  fillLightA.position.set(-12, 4.2, 11);
-  scene.add(fillLightA);
-
-  const fillLightB = new THREE.PointLight(0xffc47a, 0.22, 48);
-  fillLightB.position.set(12, 4.1, -12);
-  scene.add(fillLightB);
+  shadowSeat.position.set(x, -0.78, z);
+  shadowSeat.castShadow = true;
+  scene.add(shadowSeat);
 }
 
 function addBottleShelf(x, z) {
