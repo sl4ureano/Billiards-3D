@@ -1,0 +1,492 @@
+:root {
+  color-scheme: dark;
+  --felt: #167d64;
+  --felt-dark: #0d493d;
+  --rail: #402414;
+  --rail-hi: #7c4a25;
+  --ink: #f7efe3;
+  --muted: #b7c4bc;
+  --panel: rgba(18, 23, 25, 0.78);
+  --line: rgba(255, 255, 255, 0.14);
+  --gold: #f0b84f;
+  --red: #d65448;
+  --blue: #5792e8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #111719;
+  color: var(--ink);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button,
+[role="application"],
+[role="slider"],
+#scene {
+  touch-action: none;
+}
+
+.table-body {
+  overflow: hidden;
+}
+
+.table-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  background:
+    linear-gradient(180deg, rgba(10, 13, 14, 0.2), rgba(10, 13, 14, 0.78)),
+    radial-gradient(circle at 18% 12%, rgba(240, 184, 79, 0.14), transparent 22rem),
+    #111719;
+}
+
+.topbar,
+.scorebar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem clamp(1rem, 3vw, 2rem);
+}
+
+.topbar {
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.brand-mark {
+  width: 2.6rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 32%, #ffffff 0 12%, transparent 13%),
+    conic-gradient(from 25deg, var(--gold), var(--red), var(--blue), var(--gold));
+  box-shadow: 0 0 1.7rem rgba(240, 184, 79, 0.25);
+}
+
+h1,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(1.2rem, 2.5vw, 2rem);
+  font-weight: 800;
+}
+
+p,
+.label,
+a {
+  color: var(--muted);
+}
+
+.room-panel,
+.scorebar {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(16px);
+}
+
+.room-panel {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: min(22rem, 46vw);
+  padding: 0.65rem;
+  border-radius: 8px;
+}
+
+.qr {
+  display: grid;
+  place-items: center;
+  width: 4.5rem;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #fff;
+  color: #111;
+  font-size: 0.8rem;
+}
+
+.qr img {
+  width: 100%;
+  height: 100%;
+}
+
+.room-panel strong,
+.scorebar strong {
+  display: block;
+  font-size: 1.35rem;
+}
+
+.room-panel a {
+  display: inline-block;
+  margin-top: 0.25rem;
+}
+
+.scorebar {
+  margin: 0.75rem clamp(1rem, 3vw, 2rem);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+.label {
+  display: block;
+  margin-bottom: 0.18rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+meter {
+  width: min(16rem, 28vw);
+  height: 0.8rem;
+}
+
+#scene {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: crosshair;
+}
+
+#resetBtn,
+.shoot-button {
+  border: 0;
+  border-radius: 8px;
+  color: #1c1308;
+  background: var(--gold);
+  font-weight: 850;
+  cursor: pointer;
+}
+
+#resetBtn {
+  min-height: 2.35rem;
+  padding: 0 1rem;
+}
+
+.assignments {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(9rem, 1fr));
+  gap: 0.55rem;
+  flex: 1 1 21rem;
+  min-width: min(100%, 20rem);
+}
+
+.assignment-card {
+  min-height: 3.2rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.assignment-card strong {
+  font-size: 0.95rem;
+}
+
+.assignment-card small {
+  display: block;
+  margin-top: 0.18rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.controller-body {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background:
+    linear-gradient(180deg, rgba(22, 125, 100, 0.26), transparent 45%),
+    #111719;
+}
+
+.controller-shell {
+  width: min(31rem, 100%);
+}
+
+.controller-shell header {
+  margin-bottom: 1rem;
+}
+
+.controller-card {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  backdrop-filter: blur(16px);
+}
+
+.turn-chip {
+  min-height: 2.75rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.07);
+  font-weight: 800;
+}
+
+.control-deck {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(5rem, 0.85fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.stick-zone,
+.power-zone {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.control-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.joystick {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(52vw, 12.5rem);
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.12) 0 10%, transparent 11%),
+    radial-gradient(circle, rgba(22, 125, 100, 0.28), rgba(255, 255, 255, 0.06));
+  box-shadow: inset 0 0 2rem rgba(0, 0, 0, 0.22);
+}
+
+.joystick-ring {
+  width: 54%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+}
+
+.joystick-knob {
+  position: absolute;
+  width: 31%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #fff3d5, var(--gold));
+  box-shadow: 0 0.55rem 1.5rem rgba(0, 0, 0, 0.34);
+  will-change: transform;
+}
+
+.power-pad {
+  position: relative;
+  min-height: min(52vw, 12.5rem);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(214, 84, 72, 0.22), rgba(240, 184, 79, 0.1)),
+    rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 1.4rem rgba(0, 0, 0, 0.24);
+}
+
+.power-fill {
+  position: absolute;
+  inset: auto 0 0;
+  height: 45%;
+  background: linear-gradient(0deg, var(--gold), var(--red));
+  opacity: 0.9;
+}
+
+.power-thumb {
+  position: absolute;
+  right: 0.55rem;
+  bottom: 45%;
+  left: 0.55rem;
+  height: 0.26rem;
+  border-radius: 999px;
+  background: #fff6dd;
+  box-shadow: 0 0 1rem rgba(255, 246, 221, 0.55);
+  transform: translateY(50%);
+}
+
+.camera-controls {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.camera-deck {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 4.2rem;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.camera-orbit {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(44vw, 10.5rem);
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.12) 0 8%, transparent 9%),
+    conic-gradient(from 45deg, rgba(87, 146, 232, 0.2), rgba(240, 184, 79, 0.18), rgba(87, 146, 232, 0.2)),
+    rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 1.7rem rgba(0, 0, 0, 0.26);
+}
+
+.camera-ring {
+  width: 58%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+}
+
+.camera-knob {
+  position: absolute;
+  width: 30%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #d9e9ff, var(--blue));
+  box-shadow: 0 0.55rem 1.4rem rgba(0, 0, 0, 0.36);
+  will-change: transform;
+}
+
+.camera-actions {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.camera-actions button {
+  min-height: 3rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.spin-control {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.spin-ball {
+  position: relative;
+  place-self: center;
+  display: grid;
+  place-items: center;
+  width: min(44vw, 8.8rem);
+  aspect-ratio: 1;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 28%, #ffffff 0 12%, transparent 13%),
+    radial-gradient(circle at 50% 50%, #f9f5e9, #d8d2c5 74%, #a8a198);
+  box-shadow: inset -0.5rem -0.8rem 1.6rem rgba(0, 0, 0, 0.22), 0 0.7rem 1.5rem rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.spin-cross {
+  position: absolute;
+  background: rgba(25, 31, 32, 0.2);
+}
+
+.spin-cross-x {
+  width: 70%;
+  height: 1px;
+}
+
+.spin-cross-y {
+  width: 1px;
+  height: 70%;
+}
+
+.spin-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18%;
+  aspect-ratio: 1;
+  border: 2px solid #111719;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0.25rem 0.65rem rgba(0, 0, 0, 0.35);
+  will-change: transform;
+}
+
+.shoot-button {
+  min-height: 4.4rem;
+  font-size: 1.35rem;
+  text-transform: uppercase;
+}
+
+.shoot-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 720px) {
+  .topbar,
+  .scorebar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .room-panel {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .scorebar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .assignments {
+    grid-column: 1 / -1;
+  }
+
+  meter {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .control-deck {
+    grid-template-columns: minmax(0, 1fr) 5.5rem;
+  }
+
+  .joystick,
+  .power-pad {
+    min-height: 11rem;
+  }
+}

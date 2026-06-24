@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Billiards 3D Controle</title>
+  <link rel="stylesheet" href="/assets/css/style.css" />
+</head>
+<body class="controller-body">
+  <main class="controller-shell">
+    <header>
+      <h1>Billiards 3D</h1>
+      <p id="status">Conectando...</p>
+    </header>
+
+    <section class="controller-card">
+      <div class="turn-chip" id="turnChip">Aguardando mesa</div>
+
+      <div class="control-deck">
+        <div class="stick-zone">
+          <span class="control-label">Mira</span>
+          <div class="joystick" id="joystick" aria-label="Analogico de mira" role="application">
+            <span class="joystick-ring"></span>
+            <span class="joystick-knob" id="joystickKnob"></span>
+          </div>
+        </div>
+
+        <div class="power-zone">
+          <span class="control-label">Forca</span>
+          <div class="power-pad" id="powerPad" aria-label="Controle de forca" role="slider" aria-valuemin="12" aria-valuemax="100" aria-valuenow="45">
+            <span class="power-fill" id="powerFill"></span>
+            <span class="power-thumb" id="powerThumb"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="camera-controls">
+        <span class="control-label">Camera</span>
+        <div class="camera-deck">
+          <div class="camera-orbit" id="cameraOrbit" aria-label="Orbita da camera" role="application">
+            <span class="camera-ring"></span>
+            <span class="camera-knob" id="cameraKnob"></span>
+          </div>
+          <div class="camera-actions">
+            <button type="button" data-camera="zoom-in">+</button>
+            <button type="button" data-camera="reset">⟳</button>
+            <button type="button" data-camera="zoom-out">-</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="spin-control">
+        <span class="control-label">Efeito</span>
+        <div class="spin-ball" id="spinBall" aria-label="Ponto de batida na bola branca" role="application">
+          <span class="spin-cross spin-cross-x"></span>
+          <span class="spin-cross spin-cross-y"></span>
+          <span class="spin-dot" id="spinDot"></span>
+        </div>
+      </div>
+
+      <button id="shoot" class="shoot-button" type="button">Tacada</button>
+    </section>
+  </main>
+
+  <script src="/assets/js/controller.js"></script>
+</body>
+</html>
