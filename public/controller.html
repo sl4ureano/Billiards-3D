@@ -2,15 +2,22 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <title>Billiards 3D Controle</title>
   <link rel="stylesheet" href="/assets/css/style.css" />
 </head>
 <body class="controller-body">
+  <button id="startOverlay" class="start-overlay" type="button">
+    <strong>Tocar para jogar</strong>
+    <span>Ativa tela cheia e conecta o controle</span>
+  </button>
   <main class="controller-shell">
     <header>
-      <h1>Billiards 3D</h1>
-      <p id="status">Conectando...</p>
+      <div>
+        <h1>Billiards 3D</h1>
+        <p id="status">Conectando...</p>
+      </div>
+      <button id="menuBtn" class="controller-menu-btn" type="button" aria-expanded="false" aria-controls="controllerMenu">☰ Menu</button>
     </header>
 
     <section class="controller-card">
@@ -61,6 +68,48 @@
       <button id="shoot" class="shoot-button" type="button">Tacada</button>
     </section>
   </main>
+
+  <section id="controllerMenu" class="controller-menu" aria-hidden="true">
+    <div class="controller-menu-panel" role="dialog" aria-label="Menu do controle">
+      <div class="controller-menu-head">
+        <strong>Configurações</strong>
+        <button id="closeMenuBtn" type="button" aria-label="Fechar menu">×</button>
+      </div>
+      <div class="menu-group">
+        <span class="menu-label">Modo de jogo</span>
+        <button id="friendsModeBtn" class="menu-action" type="button">👥 Jogar contra amigos</button>
+        <button id="aiModeBtn" class="menu-action" type="button">🤖 Jogar contra IA</button>
+      </div>
+      <div class="menu-group">
+        <span class="menu-label">Dificuldade da IA</span>
+        <div class="difficulty-grid" role="group" aria-label="Dificuldade da IA">
+          <button type="button" data-ai-difficulty="easy">Fácil</button>
+          <button type="button" data-ai-difficulty="normal">Normal</button>
+          <button type="button" data-ai-difficulty="hard">Difícil</button>
+          <button type="button" data-ai-difficulty="extreme">Extremo</button>
+        </div>
+      </div>
+      <button id="soundToggleBtn" class="menu-action" type="button">🔊 Ligar som da mesa</button>
+      <button id="shotClockToggleBtn" class="menu-action" type="button">⏱️ Desligar timer de 1 minuto</button>
+      <button id="restartGameBtn" class="menu-action danger" type="button">🔄 Reiniciar partida</button>
+      <p class="menu-hint">Esses controles ficam no celular para a TV ficar limpa.</p>
+    </div>
+  </section>
+
+  <section id="penaltyChoice" class="penalty-choice" aria-hidden="true">
+    <div class="penalty-panel">
+      <strong>Escolha uma bola para remover</strong>
+      <span>Falta: bola saiu da área verde da mesa.</span>
+      <div id="penaltyBalls" class="penalty-balls"></div>
+    </div>
+  </section>
+
+  <div class="landscape-warning">
+    <div>
+      <strong>Vire o celular</strong>
+      <span>Controle pensado para jogar na horizontal.</span>
+    </div>
+  </div>
 
   <script src="/assets/js/controller.js"></script>
 </body>

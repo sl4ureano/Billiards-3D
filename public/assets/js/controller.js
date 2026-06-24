@@ -2,6 +2,7 @@
   const params = new URLSearchParams(window.location.search);
   const code = String(params.get("code") || "").toUpperCase();
   const statusEl = document.querySelector("#status");
+  const startOverlay = document.querySelector("#startOverlay");
   const turnChip = document.querySelector("#turnChip");
   const shootButton = document.querySelector("#shoot");
   const joystick = document.querySelector("#joystick");
@@ -13,10 +14,30 @@
   const spinDot = document.querySelector("#spinDot");
   const cameraOrbit = document.querySelector("#cameraOrbit");
   const cameraKnob = document.querySelector("#cameraKnob");
+  const menuBtn = document.querySelector("#menuBtn");
+  const controllerMenu = document.querySelector("#controllerMenu");
+  const closeMenuBtn = document.querySelector("#closeMenuBtn");
+  const soundToggleBtn = document.querySelector("#soundToggleBtn");
+  const restartGameBtn = document.querySelector("#restartGameBtn");
+  const friendsModeBtn = document.querySelector("#friendsModeBtn");
+  const aiModeBtn = document.querySelector("#aiModeBtn");
+  const difficultyButtons = Array.from(document.querySelectorAll("[data-ai-difficulty]"));
+  const shotClockToggleBtn = document.querySelector("#shotClockToggleBtn");
+  const penaltyChoice = document.querySelector("#penaltyChoice");
+  const penaltyBalls = document.querySelector("#penaltyBalls");
 
   let playerId = 0;
   let currentTurn = 1;
   let moving = true;
+  let ballInHand = false;
+  let gameMessage = "";
+  let winner = null;
+  let audioEnabled = false;
+  let aiEnabled = false;
+  let aiDifficulty = "normal";
+  let shotClockEnabled = true;
+  let shotClockRemaining = 60000;
+  let pendingRemoveChoice = null;
   let power = 0.45;
   let spin = { x: 0, y: 0 };
   let joystickPointerId = null;
@@ -28,9 +49,48 @@
   let ws;
 
   connect();
+  installFullscreenUnlock();
 
   shootButton.addEventListener("click", () => {
     sendInput("shoot", power);
+  });
+
+  menuBtn?.addEventListener("click", () => setMenuOpen(true));
+  closeMenuBtn?.addEventListener("click", () => setMenuOpen(false));
+  controllerMenu?.addEventListener("click", (event) => {
+    if (event.target === controllerMenu) setMenuOpen(false);
+  });
+  soundToggleBtn?.addEventListener("click", () => {
+    audioEnabled = !audioEnabled;
+    sendInput("audio-set", audioEnabled);
+    renderMenuState();
+  });
+  restartGameBtn?.addEventListener("click", () => {
+    sendInput("reset-game");
+    setMenuOpen(false);
+  });
+  friendsModeBtn?.addEventListener("click", () => {
+    aiEnabled = false;
+    sendInput("set-ai-mode", { enabled: false, difficulty: aiDifficulty });
+    renderMenuState();
+  });
+  aiModeBtn?.addEventListener("click", () => {
+    aiEnabled = true;
+    sendInput("set-ai-mode", { enabled: true, difficulty: aiDifficulty });
+    renderMenuState();
+  });
+  difficultyButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      aiDifficulty = button.dataset.aiDifficulty || "normal";
+      aiEnabled = true;
+      sendInput("set-ai-mode", { enabled: true, difficulty: aiDifficulty });
+      renderMenuState();
+    });
+  });
+  shotClockToggleBtn?.addEventListener("click", () => {
+    shotClockEnabled = !shotClockEnabled;
+    sendInput("set-shot-clock", shotClockEnabled);
+    renderMenuState();
   });
 
   joystick.addEventListener("pointerdown", (event) => {
@@ -138,6 +198,18 @@
       if (msg.type === "state" && msg.snapshot) {
         currentTurn = msg.snapshot.turn || 1;
         moving = !!msg.snapshot.moving;
+        ballInHand = !!msg.snapshot.ballInHand;
+        gameMessage = String(msg.snapshot.message || "");
+        winner = msg.snapshot.winner || null;
+        audioEnabled = !!msg.snapshot.audioEnabled;
+        pendingRemoveChoice = msg.snapshot.pendingRemoveChoice || null;
+        shotClockEnabled = msg.snapshot.shotClockEnabled !== false;
+        shotClockRemaining = Number(msg.snapshot.shotClockRemaining || 0);
+        if (msg.snapshot.ai) {
+          aiEnabled = !!msg.snapshot.ai.enabled;
+          aiDifficulty = msg.snapshot.ai.difficulty || aiDifficulty;
+        }
+        renderMenuState();
         if (typeof msg.snapshot.power === "number" && powerPointerId === null) {
           power = msg.snapshot.power;
           renderPower();
@@ -183,7 +255,7 @@
     joystickKnob.style.transform = `translate(${x}px, ${y}px)`;
 
     if (distance > rect.width * 0.08) {
-      sendInput("aim-vector", {
+      sendInput(ballInHand ? "place-cue" : "aim-vector", {
         x: clamp(x / radius, -1, 1),
         y: clamp(y / radius, -1, 1)
       });
@@ -276,12 +348,129 @@
     powerPad.setAttribute("aria-valuenow", String(percent));
   }
 
+  function setMenuOpen(open) {
+    if (!controllerMenu) return;
+    controllerMenu.classList.toggle("is-open", open);
+    controllerMenu.setAttribute("aria-hidden", open ? "false" : "true");
+    menuBtn?.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+
+  function renderMenuState() {
+    if (soundToggleBtn) {
+      soundToggleBtn.textContent = audioEnabled ? "🔇 Desligar som da mesa" : "🔊 Ligar som da mesa";
+      soundToggleBtn.classList.toggle("is-on", audioEnabled);
+    }
+    if (restartGameBtn) {
+      restartGameBtn.disabled = !playerId;
+      restartGameBtn.title = playerId ? "Reiniciar partida" : "Conecte na sala primeiro";
+    }
+    friendsModeBtn?.classList.toggle("is-on", !aiEnabled);
+    aiModeBtn?.classList.toggle("is-on", aiEnabled);
+    difficultyButtons.forEach((button) => {
+      button.classList.toggle("is-on", aiEnabled && button.dataset.aiDifficulty === aiDifficulty);
+    });
+    if (shotClockToggleBtn) {
+      shotClockToggleBtn.textContent = shotClockEnabled ? "⏱️ Desligar timer de 1 minuto" : "⏱️ Ligar timer de 1 minuto";
+      shotClockToggleBtn.classList.toggle("is-on", shotClockEnabled);
+    }
+  }
+
   function updateControls() {
     const isTurn = playerId === currentTurn;
-    shootButton.disabled = !isTurn || moving;
+    const hasPenaltyChoice = pendingRemoveChoice && pendingRemoveChoice.player === playerId;
+    renderPenaltyChoice(hasPenaltyChoice);
+    shootButton.disabled = !isTurn || moving || !!winner || !!pendingRemoveChoice;
+    document.body.classList.toggle("is-ball-in-hand", ballInHand && isTurn);
+
+    if (hasPenaltyChoice) {
+      turnChip.textContent = "Escolha uma bola para remover";
+      shootButton.textContent = "Aguardando escolha";
+      shootButton.disabled = true;
+      return;
+    }
+
+    if (pendingRemoveChoice) {
+      turnChip.textContent = `Jogador ${pendingRemoveChoice.player} escolhendo uma bola`;
+      shootButton.disabled = true;
+      return;
+    }
+
+    if (winner) {
+      turnChip.textContent = `Jogador ${winner} venceu`;
+      shootButton.textContent = "Fim";
+      return;
+    }
+
+    if (ballInHand) {
+      if (isTurn) {
+        turnChip.textContent = "Bola na mão: mova a branca";
+        shootButton.textContent = "Confirmar posição";
+        shootButton.disabled = false;
+      } else {
+        turnChip.textContent = `Jogador ${currentTurn} posicionando a branca`;
+        shootButton.textContent = "Tacada";
+      }
+      return;
+    }
+
+    renderMenuState();
+    shootButton.textContent = "Tacada";
+    const timerText = shotClockEnabled && isTurn && !moving ? ` · ${Math.ceil(shotClockRemaining / 1000)}s` : "";
     turnChip.textContent = isTurn
-      ? moving ? "Aguarde as bolas" : "Sua vez"
+      ? moving ? "Aguarde as bolas" : `${gameMessage || "Sua vez"}${timerText}`
       : `Vez do jogador ${currentTurn}`;
+  }
+
+  function renderPenaltyChoice(active) {
+    if (!penaltyChoice || !penaltyBalls) return;
+    penaltyChoice.classList.toggle("is-open", !!active);
+    penaltyChoice.setAttribute("aria-hidden", active ? "false" : "true");
+    if (!active || !pendingRemoveChoice) {
+      penaltyBalls.innerHTML = "";
+      return;
+    }
+    penaltyBalls.innerHTML = pendingRemoveChoice.choices.map((number) => `
+      <button type="button" class="penalty-ball" data-number="${number}" aria-label="Remover bola ${number}">
+        <img src="/assets/pool-table/${number}ball.png" alt="Bola ${number}" />
+      </button>
+    `).join("");
+    penaltyBalls.querySelectorAll("[data-number]").forEach((button) => {
+      button.addEventListener("click", () => {
+        sendInput("remove-ball-choice", Number(button.dataset.number));
+      }, { once: true });
+    });
+  }
+
+  function installFullscreenUnlock() {
+    const unlock = async () => {
+      document.body.classList.add("controller-unlocked");
+      if (startOverlay) startOverlay.classList.add("is-hidden");
+
+      try {
+        if (screen.orientation?.lock) {
+          await screen.orientation.lock("landscape");
+        }
+      } catch {
+        // Nem todo navegador permite travar orientação; o aviso visual cobre esse caso.
+      }
+
+      try {
+        const target = document.documentElement;
+        if (!document.fullscreenElement && target.requestFullscreen) {
+          await target.requestFullscreen({ navigationUI: "hide" });
+        }
+      } catch {
+        // Fullscreen depende da permissão do navegador; o controle continua funcionando.
+      }
+    };
+
+    if (startOverlay) {
+      startOverlay.addEventListener("click", unlock, { once: true });
+      startOverlay.addEventListener("touchstart", unlock, { once: true, passive: true });
+    }
+
+    window.addEventListener("pointerdown", unlock, { once: true, passive: true });
+    window.addEventListener("touchstart", unlock, { once: true, passive: true });
   }
 
   function parseMessage(data) {

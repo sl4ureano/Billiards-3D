@@ -99,6 +99,10 @@ a {
   color: var(--muted);
 }
 
+a {
+  overflow-wrap: anywhere;
+}
+
 .room-panel,
 .scorebar {
   background: var(--panel);
@@ -109,16 +113,18 @@ a {
 .room-panel {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  min-width: min(22rem, 46vw);
-  padding: 0.65rem;
+  gap: 0.85rem;
+  width: min(34rem, 52vw);
+  max-width: 100%;
+  padding: 0.7rem;
   border-radius: 8px;
 }
 
 .qr {
   display: grid;
   place-items: center;
-  width: 4.5rem;
+  width: 5.2rem;
+  min-width: 5.2rem;
   aspect-ratio: 1;
   overflow: hidden;
   border-radius: 6px;
@@ -138,9 +144,45 @@ a {
   font-size: 1.35rem;
 }
 
+.room-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.room-links {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+}
+
 .room-panel a {
-  display: inline-block;
-  margin-top: 0.25rem;
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+  padding: 0.5rem 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  text-decoration: none;
+  line-height: 1.1;
+}
+
+.room-panel a span {
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 850;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.room-panel a small {
+  color: var(--muted);
+  font-size: 0.66rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .scorebar {
@@ -466,6 +508,10 @@ meter {
     min-width: 0;
   }
 
+  .room-links {
+    grid-template-columns: 1fr;
+  }
+
   .scorebar {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -489,4 +535,888 @@ meter {
   .power-pad {
     min-height: 11rem;
   }
+}
+
+.remaining-balls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.28rem;
+  margin-top: 0.32rem;
+  min-height: 1.7rem;
+}
+
+.hud-ball-icon {
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 50%;
+  object-fit: cover;
+  filter: drop-shadow(0 0.18rem 0.24rem rgba(0, 0, 0, 0.45));
+  user-select: none;
+}
+
+.assignment-open {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+  line-height: 1.15;
+}
+
+/* Controle mobile horizontal: mantém a lógica dos controles e só reorganiza a tela. */
+.controller-body {
+  min-height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.controller-body.is-ball-in-hand .stick-zone .control-label::after {
+  content: " · mova a branca";
+  color: var(--gold);
+}
+
+@media (orientation: landscape) and (max-height: 620px) {
+  .controller-body {
+    display: block;
+    padding: max(0.35rem, env(safe-area-inset-top)) max(0.55rem, env(safe-area-inset-right)) max(0.35rem, env(safe-area-inset-bottom)) max(0.55rem, env(safe-area-inset-left));
+  }
+
+  .controller-shell {
+    width: 100%;
+    height: calc(100dvh - max(0.7rem, env(safe-area-inset-top)) - max(0.7rem, env(safe-area-inset-bottom)));
+    display: grid;
+    grid-template-rows: auto 1fr;
+  }
+
+  .controller-shell header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    margin: 0 0 0.35rem;
+  }
+
+  .controller-shell h1 {
+    font-size: clamp(0.95rem, 2.1vw, 1.2rem);
+  }
+
+  .controller-shell header p {
+    font-size: 0.72rem;
+    text-align: right;
+  }
+
+  .controller-card {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(12rem, 1.15fr) minmax(8rem, 0.7fr) minmax(10rem, 0.95fr) minmax(8rem, 0.72fr);
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      "turn turn turn shoot"
+      "aim power camera spin"
+      "aim power camera spin";
+    gap: clamp(0.45rem, 1.2vw, 0.8rem);
+    padding: clamp(0.45rem, 1.25vw, 0.75rem);
+    border-radius: 10px;
+  }
+
+  .turn-chip {
+    grid-area: turn;
+    min-height: 2.25rem;
+    padding: 0 0.7rem;
+    font-size: clamp(0.78rem, 1.7vw, 1rem);
+  }
+
+  .shoot-button {
+    grid-area: shoot;
+    min-height: 2.25rem;
+    align-self: stretch;
+    font-size: clamp(0.82rem, 1.8vw, 1.05rem);
+  }
+
+  .control-deck {
+    display: contents;
+  }
+
+  .stick-zone {
+    grid-area: aim;
+  }
+
+  .power-zone {
+    grid-area: power;
+  }
+
+  .camera-controls {
+    grid-area: camera;
+  }
+
+  .spin-control {
+    grid-area: spin;
+  }
+
+  .stick-zone,
+  .power-zone,
+  .camera-controls,
+  .spin-control {
+    min-height: 0;
+    align-content: center;
+    justify-items: center;
+    gap: 0.35rem;
+  }
+
+  .control-label {
+    width: 100%;
+    text-align: center;
+    font-size: clamp(0.58rem, 1.25vw, 0.72rem);
+  }
+
+  .joystick,
+  .camera-orbit,
+  .spin-ball {
+    width: min(28vh, 22vw, 10.2rem);
+    min-width: 7rem;
+  }
+
+  .power-pad {
+    width: min(12vw, 5.4rem);
+    min-width: 4rem;
+    min-height: min(42vh, 11rem);
+    height: min(42vh, 11rem);
+  }
+
+  .camera-deck {
+    grid-template-columns: 1fr auto;
+    gap: 0.45rem;
+  }
+
+  .camera-actions {
+    gap: 0.3rem;
+  }
+
+  .camera-actions button {
+    min-width: 2.35rem;
+    min-height: 2.1rem;
+    font-size: 1rem;
+    padding: 0;
+  }
+}
+
+@media (orientation: portrait) and (max-width: 720px) {
+  .controller-body::before {
+    content: "Vire o celular na horizontal para jogar melhor";
+    position: fixed;
+    top: 0.55rem;
+    left: 50%;
+    z-index: 10;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100vw - 1rem);
+    padding: 0.45rem 0.7rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(18, 23, 25, 0.86);
+    color: var(--gold);
+    font-size: 0.72rem;
+    font-weight: 850;
+    pointer-events: none;
+  }
+}
+
+.audio-btn {
+  position: fixed;
+  right: clamp(1rem, 3vw, 2rem);
+  bottom: clamp(1rem, 3vw, 2rem);
+  z-index: 5;
+  min-height: 2.6rem;
+  padding: 0 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  background: rgba(240, 184, 79, 0.96);
+  color: #1c1308;
+  font-weight: 900;
+  box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+}
+
+.audio-btn.is-on {
+  opacity: 0.55;
+}
+
+
+/* Controle estilo mobile horizontal/fullscreen inspirado no Blaster Bros. */
+.controller-body {
+  width: 100vw;
+  height: 100vh;
+  min-height: 100svh;
+  padding: 0 !important;
+  display: block;
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
+  background: radial-gradient(circle at top, rgba(22,125,100,.32), #080b0c 72%);
+}
+
+.start-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  border: 0;
+  background: radial-gradient(circle at top, rgba(22,125,100,.58), #070909 72%);
+  color: white;
+  text-align: center;
+  padding: 24px;
+  cursor: pointer;
+}
+
+.start-overlay strong {
+  font-size: clamp(2rem, 8vw, 4.2rem);
+  font-weight: 950;
+  letter-spacing: -.04em;
+}
+
+.start-overlay span {
+  color: var(--muted);
+  font-size: clamp(1rem, 3vw, 1.35rem);
+  font-weight: 800;
+}
+
+.start-overlay.is-hidden,
+.controller-unlocked .start-overlay {
+  display: none;
+}
+
+.landscape-warning {
+  display: none;
+}
+
+.controller-shell {
+  width: 100vw !important;
+  height: 100dvh;
+  min-height: 100svh;
+  padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: clamp(6px, 1.2vmin, 12px);
+}
+
+.controller-shell header {
+  min-height: 0;
+  margin: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 4px;
+}
+
+.controller-shell header h1 {
+  font-size: clamp(1rem, 2.4vw, 1.45rem);
+  white-space: nowrap;
+}
+
+.controller-shell header p {
+  font-size: clamp(.72rem, 1.7vw, .95rem);
+  text-align: right;
+  line-height: 1.1;
+}
+
+.controller-card {
+  height: 100%;
+  min-height: 0;
+  display: grid !important;
+  grid-template-columns: minmax(160px, 1.05fr) minmax(72px, .42fr) minmax(140px, .86fr) minmax(120px, .66fr);
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "turn turn turn shoot"
+    "aim power camera spin"
+    "aim power camera spin";
+  gap: clamp(8px, 1.4vw, 16px);
+  padding: clamp(8px, 1.6vmin, 16px) !important;
+  border-radius: 18px;
+}
+
+.turn-chip {
+  grid-area: turn;
+  min-height: clamp(34px, 8vh, 54px) !important;
+  padding: 0 12px;
+  font-size: clamp(.78rem, 1.8vw, 1.05rem);
+  text-align: center;
+}
+
+.shoot-button {
+  grid-area: shoot;
+  min-height: clamp(42px, 10vh, 70px) !important;
+  align-self: stretch;
+  font-size: clamp(.85rem, 2.1vw, 1.22rem) !important;
+  border-radius: 16px;
+}
+
+.control-deck {
+  display: contents !important;
+}
+
+.stick-zone { grid-area: aim; }
+.power-zone { grid-area: power; }
+.camera-controls { grid-area: camera; }
+.spin-control { grid-area: spin; }
+
+.stick-zone,
+.power-zone,
+.camera-controls,
+.spin-control {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: clamp(5px, 1.2vmin, 10px);
+}
+
+.control-label {
+  width: 100%;
+  text-align: center;
+  font-size: clamp(.58rem, 1.35vw, .78rem) !important;
+}
+
+.joystick {
+  width: min(54vh, 26vw, 15rem) !important;
+  min-width: min(34vw, 8.8rem);
+}
+
+.camera-orbit {
+  width: min(42vh, 20vw, 11.5rem) !important;
+  min-width: min(28vw, 7.4rem);
+}
+
+.spin-ball {
+  width: min(38vh, 17vw, 10.5rem) !important;
+  min-width: min(24vw, 6.8rem);
+}
+
+.power-pad {
+  width: min(11vw, 5.6rem) !important;
+  min-width: 3.8rem;
+  height: min(54vh, 15rem) !important;
+  min-height: 8.8rem !important;
+}
+
+.camera-deck {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: clamp(5px, 1.1vw, 10px);
+  justify-items: center;
+}
+
+.camera-actions {
+  gap: clamp(4px, .9vmin, 8px);
+}
+
+.camera-actions button {
+  min-width: clamp(34px, 6.5vh, 48px);
+  min-height: clamp(30px, 6vh, 44px);
+  padding: 0;
+  border-radius: 12px;
+}
+
+@media (orientation: portrait) and (max-width: 900px) {
+  .controller-shell {
+    display: none;
+  }
+
+  .landscape-warning {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    display: grid;
+    place-items: center;
+    min-height: 100svh;
+    padding: 24px;
+    text-align: center;
+    background: radial-gradient(circle at top, rgba(22,125,100,.42), #080b0c 72%);
+  }
+
+  .landscape-warning strong {
+    display: block;
+    font-size: 28px;
+    margin-bottom: 10px;
+  }
+
+  .landscape-warning span {
+    color: var(--muted);
+    font-weight: 800;
+  }
+
+  .start-overlay {
+    z-index: 1001;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 430px) {
+  .controller-shell {
+    padding: max(5px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(5px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    gap: 5px;
+  }
+
+  .controller-shell header {
+    display: none;
+  }
+
+  .controller-card {
+    grid-template-columns: minmax(145px, 1.05fr) minmax(62px, .38fr) minmax(130px, .82fr) minmax(104px, .58fr);
+    gap: 7px;
+    padding: 7px !important;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "turn turn turn shoot"
+      "aim power camera spin";
+  }
+
+  .turn-chip,
+  .shoot-button {
+    min-height: 34px !important;
+  }
+
+  .joystick { width: min(60vh, 25vw, 12rem) !important; }
+  .camera-orbit { width: min(48vh, 19vw, 9.5rem) !important; }
+  .spin-ball { width: min(42vh, 15vw, 8.5rem) !important; }
+  .power-pad { height: min(58vh, 11rem) !important; min-height: 7.2rem !important; }
+}
+
+.controller-body::before{display:none!important;content:none!important;}
+
+/* v17 lobby cards: QR por ação e sem URL visível */
+.room-panel {
+  width: min(46rem, 70vw);
+  align-items: stretch;
+}
+
+.room-info {
+  display: grid;
+  align-content: center;
+}
+
+.room-links {
+  grid-template-columns: repeat(3, minmax(8.4rem, 1fr));
+  gap: 0.65rem;
+}
+
+.room-panel a.room-action-card {
+  min-height: 7.35rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto 1fr;
+  gap: 0.12rem 0.55rem;
+  align-items: center;
+  padding: 0.7rem;
+  overflow: hidden;
+}
+
+.room-action-icon {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.room-panel a.room-action-card .room-action-title {
+  grid-column: 1;
+  grid-row: 2;
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 900;
+  line-height: 1.05;
+  text-transform: uppercase;
+  letter-spacing: 0.015em;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.room-panel a.room-action-card small {
+  grid-column: 1;
+  grid-row: 3;
+  align-self: start;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.room-panel a.room-action-card .mini-qr {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  display: grid;
+  place-items: center;
+  width: 3.65rem;
+  aspect-ratio: 1;
+  padding: 0.18rem;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.18), 0 0.45rem 1rem rgba(0,0,0,0.28);
+}
+
+.mini-qr img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+
+@media (max-width: 980px) {
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .room-panel {
+    width: 100%;
+  }
+}
+
+@media (max-width: 760px) {
+  .room-panel {
+    flex-direction: column;
+  }
+
+  .qr {
+    width: 4.7rem;
+    min-width: 4.7rem;
+  }
+
+  .room-links {
+    grid-template-columns: 1fr;
+  }
+
+  .room-panel a.room-action-card {
+    min-height: 5.5rem;
+  }
+}
+
+
+/* v18: remove QR grande redundante; cada card ja tem seu mini QR */
+.room-panel {
+  width: min(43rem, 68vw);
+  display: block;
+  padding: 0.9rem;
+}
+.room-info-clean {
+  width: 100%;
+}
+.room-info-clean > .label {
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  font-weight: 900;
+  margin-bottom: 0.15rem;
+}
+.room-info-clean > strong {
+  margin-bottom: 0.65rem;
+}
+@media (max-width: 980px) {
+  .room-panel { width: 100%; }
+}
+
+/* v19: TV limpa; controles administrativos ficam apenas no celular */
+.table-shell #resetBtn,
+.table-shell #audioBtn {
+  display: none !important;
+}
+
+.controller-menu-btn {
+  min-height: 2.35rem;
+  padding: 0 .85rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.09);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.controller-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  display: none;
+  place-items: center;
+  padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  background: rgba(0, 0, 0, .52);
+  backdrop-filter: blur(8px);
+}
+
+.controller-menu.is-open {
+  display: grid;
+}
+
+.controller-menu-panel {
+  width: min(26rem, calc(100vw - 28px));
+  display: grid;
+  gap: .7rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(18, 23, 25, .96);
+  box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, .42);
+}
+
+.controller-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.controller-menu-head strong {
+  font-size: 1.1rem;
+  font-weight: 950;
+}
+
+.controller-menu-head button {
+  width: 2.4rem;
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: rgba(255,255,255,.08);
+  color: var(--ink);
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.menu-action {
+  min-height: 3.4rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, .08);
+  font-weight: 900;
+  text-align: left;
+  padding: 0 1rem;
+}
+
+.menu-action.is-on {
+  border-color: rgba(240, 184, 79, .65);
+  background: rgba(240, 184, 79, .16);
+}
+
+.menu-action.danger {
+  color: #ffe2de;
+  background: rgba(214, 84, 72, .13);
+}
+
+.menu-action:disabled {
+  opacity: .45;
+}
+
+.menu-hint {
+  color: var(--muted);
+  font-size: .78rem;
+  line-height: 1.25;
+}
+
+@media (orientation: landscape) and (max-height: 430px) {
+  .controller-menu-panel {
+    width: min(30rem, calc(100vw - 28px));
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+  }
+  .controller-menu-head,
+  .menu-hint {
+    grid-column: 1 / -1;
+  }
+}
+
+.menu-group {
+  display: grid;
+  gap: .45rem;
+}
+
+.menu-label {
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.difficulty-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .45rem;
+}
+
+.difficulty-grid button {
+  min-height: 2.65rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, .08);
+  font-weight: 900;
+}
+
+.difficulty-grid button.is-on {
+  border-color: rgba(240, 184, 79, .7);
+  background: rgba(240, 184, 79, .18);
+}
+
+@media (orientation: landscape) and (max-height: 430px) {
+  .menu-group {
+    align-self: stretch;
+  }
+}
+
+
+/* v21: TV mais limpa/compacta para sobrar area jogavel */
+.table-shell {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+.topbar {
+  padding: 0.55rem clamp(0.75rem, 2vw, 1.25rem);
+  gap: 0.75rem;
+}
+.brand { gap: 0.55rem; }
+.brand-mark { width: 1.9rem; }
+.brand h1 { font-size: clamp(1rem, 1.6vw, 1.35rem); line-height: 1; }
+.brand p { font-size: 0.78rem; }
+.room-panel {
+  width: min(35rem, 55vw) !important;
+  padding: 0.45rem !important;
+  border-radius: 7px;
+}
+.room-info-clean > .label {
+  font-size: 0.58rem;
+  margin-bottom: 0.02rem;
+}
+.room-info-clean > strong {
+  display: block;
+  font-size: 1rem;
+  line-height: 1;
+  margin-bottom: 0.32rem !important;
+}
+.room-links {
+  grid-template-columns: repeat(3, minmax(6.4rem, 1fr)) !important;
+  gap: 0.4rem !important;
+}
+.room-panel a.room-action-card {
+  min-height: 4.8rem !important;
+  padding: 0.42rem !important;
+  gap: 0.04rem 0.35rem !important;
+}
+.room-action-icon { font-size: 1rem !important; }
+.room-panel a.room-action-card .room-action-title {
+  font-size: 0.66rem !important;
+}
+.room-panel a.room-action-card small {
+  font-size: 0.58rem !important;
+}
+.room-panel a.room-action-card .mini-qr {
+  width: 2.65rem !important;
+  padding: 0.12rem !important;
+  border-radius: 5px !important;
+}
+.scorebar {
+  padding: 0.42rem clamp(0.75rem, 2vw, 1.25rem) !important;
+  gap: 0.55rem !important;
+  min-height: 4rem;
+}
+.scorebar > div:not(.assignments) { min-width: auto; }
+.scorebar .label { font-size: 0.57rem; }
+.scorebar strong { font-size: 0.9rem; line-height: 1.05; }
+.scorebar meter { width: min(10rem, 12vw); height: 0.45rem; }
+.assignments {
+  gap: 0.35rem !important;
+  grid-template-columns: repeat(2, minmax(12rem, 1fr)) !important;
+}
+.assignment-card {
+  min-height: 2.6rem !important;
+  padding: 0.32rem 0.45rem !important;
+}
+.assignment-card strong { font-size: 0.78rem !important; }
+.assignment-card small { font-size: 0.62rem !important; margin-top: 0.05rem !important; }
+.remaining-balls img, .ball-hud-icon { width: 1.15rem !important; height: 1.15rem !important; }
+#scene { min-height: 0; }
+@media (max-width: 980px) {
+  .topbar { align-items: stretch; }
+  .room-panel { width: 100% !important; }
+  .room-links { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+}
+
+/* v28 fixes */
+#shotTimer {
+  min-width: 3.2rem;
+  text-align: center;
+  color: var(--gold);
+}
+
+.penalty-choice {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(8px);
+}
+
+.penalty-choice.is-open {
+  display: flex;
+}
+
+.penalty-panel {
+  width: min(92vw, 32rem);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 1rem;
+  background: rgba(18, 23, 25, 0.96);
+  box-shadow: 0 1.2rem 4rem rgba(0, 0, 0, 0.45);
+  text-align: center;
+}
+
+.penalty-panel strong {
+  display: block;
+  font-size: 1.15rem;
+  margin-bottom: 0.25rem;
+}
+
+.penalty-panel span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 0.8rem;
+}
+
+.penalty-balls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.55rem;
+}
+
+.penalty-ball {
+  width: 3.25rem;
+  height: 3.25rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  cursor: pointer;
+}
+
+.penalty-ball img {
+  width: 2.35rem;
+  height: 2.35rem;
+  display: block;
+  pointer-events: none;
 }

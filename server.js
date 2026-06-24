@@ -16,6 +16,9 @@ app.use(express.static(path.join(__dirname, "public")));
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 app.get("/table", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 app.get("/controller", (req, res) => res.sendFile(path.join(__dirname, "public", "controller.html")));
+app.get("/spectator", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
+app.get("/viewer", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
+app.get("/play", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 
 app.get("/new-session", async (req, res) => {
   let code = makeCode();
@@ -29,6 +32,7 @@ app.get("/new-session", async (req, res) => {
   console.log(`BILLIARDS 3D ROOM: ${code}`);
   console.log(`TABLE      ${details.tableUrl}`);
   console.log(`CONTROL    ${details.controllerUrl}`);
+  console.log(`SPECTATOR  ${details.spectatorUrl}`);
   console.log("=======================================");
   console.log("");
 
@@ -39,6 +43,18 @@ app.get("/session/:code", async (req, res) => {
   const session = sessions.get(String(req.params.code || "").toUpperCase());
   if (!session) return res.status(404).json({ error: "Sala nao encontrada" });
   res.json(await sessionDetails(req, session));
+});
+
+
+app.get("/qr-link", async (req, res) => {
+  const target = String(req.query.url || "");
+  if (!target || !/^https?:\/\//.test(target)) return res.status(400).send("URL invalida");
+  try {
+    const png = await QRCode.toBuffer(target, { type: "png", width: 220, margin: 1 });
+    res.type("png").send(png);
+  } catch {
+    res.status(500).send("Erro ao gerar QR");
+  }
 });
 
 app.get("/qr/:code", async (req, res) => {
@@ -106,6 +122,25 @@ wss.on("connection", (ws) => {
       return;
     }
 
+
+
+    if (msg.type === "join-viewer" || msg.type === "join-spectator") {
+      const session = sessions.get(String(msg.code || "").toUpperCase());
+      if (!session) return send(ws, { type: "error", message: "Sala nao encontrada" });
+
+      ws.role = "viewer";
+      ws.code = session.code;
+      session.viewers.add(ws);
+
+      send(ws, {
+        type: "viewer-ready",
+        code: session.code,
+        players: sessionPlayers(session),
+        snapshot: session.snapshot
+      });
+      return;
+    }
+
     if (ws.role === "controller" && msg.type === "input") {
       const session = sessions.get(ws.code);
       send(session?.host, {
@@ -122,6 +157,7 @@ wss.on("connection", (ws) => {
       if (!session) return;
       session.snapshot = msg.snapshot;
       broadcastControllers(session, { type: "state", snapshot: msg.snapshot });
+      broadcastViewers(session, { type: "state", snapshot: msg.snapshot });
     }
   });
 
@@ -134,13 +170,17 @@ wss.on("connection", (ws) => {
       broadcastControllers(session, { type: "host-left" });
     }
 
+    if (ws.role === "viewer") {
+      session.viewers.delete(ws);
+    }
+
     if (ws.role === "controller") {
       session.controllers.delete(ws.playerId);
       send(session.host, { type: "player-left", playerId: ws.playerId, players: sessionPlayers(session) });
       broadcastControllers(session, { type: "players", players: sessionPlayers(session) });
     }
 
-    if (!session.host && session.controllers.size === 0) sessions.delete(session.code);
+    if (!session.host && session.controllers.size === 0 && session.viewers.size === 0) sessions.delete(session.code);
   });
 });
 
@@ -164,6 +204,7 @@ function createSession(code) {
     code,
     host: null,
     controllers: new Map(),
+    viewers: new Set(),
     nextPlayerId: 1,
     snapshot: null
   };
@@ -175,8 +216,10 @@ async function sessionDetails(req, session) {
   const origin = getPublicOrigin(req);
   const tableUrl = `${origin}/table?code=${session.code}`;
   const controllerUrl = `${origin}/controller?code=${session.code}`;
+  const playUrl = `${origin}/play?code=${session.code}`;
+  const spectatorUrl = `${origin}/spectator?code=${session.code}`;
   const qr = await QRCode.toDataURL(controllerUrl, { width: 280, margin: 1 });
-  return { code: session.code, tableUrl, controllerUrl, qr };
+  return { code: session.code, tableUrl, controllerUrl, playUrl, spectatorUrl, qr };
 }
 
 function makeCode() {
@@ -189,6 +232,13 @@ function send(ws, payload) {
 
 function broadcastControllers(session, payload) {
   for (const controller of session.controllers.values()) send(controller, payload);
+}
+
+function broadcastViewers(session, payload) {
+  for (const viewer of session.viewers || []) {
+    if (viewer.bufferedAmount > 64 * 1024) continue;
+    send(viewer, payload);
+  }
 }
 
 function sessionPlayers(session) {

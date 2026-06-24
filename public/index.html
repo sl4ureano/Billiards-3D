@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Billiards 3D</title>
   <link rel="stylesheet" href="/assets/css/style.css" />
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.165.0/build/three.module.js"
+  }
+}
+</script>
+
 </head>
 <body class="table-body">
   <main class="table-shell">
@@ -18,11 +27,29 @@
       </div>
 
       <section class="room-panel" aria-label="Sala">
-        <div id="qr" class="qr">QR</div>
-        <div>
-          <span class="label">Codigo</span>
+        <div class="room-info room-info-clean">
+          <span class="label">Codigo da sala</span>
           <strong id="code">----</strong>
-          <a id="controlLink" href="#" target="_blank" rel="noopener">controle</a>
+          <div class="room-links" aria-label="Links da sala">
+            <a id="controlLink" class="room-action-card" href="#" target="_blank" rel="noopener" aria-label="Abrir controle">
+              <span class="room-action-icon">🎮</span>
+              <span class="room-action-title">Controle</span>
+              <small>Jogar</small>
+              <span class="mini-qr" aria-hidden="true"></span>
+            </a>
+            <a id="playLink" class="room-action-card" href="#" target="_blank" rel="noopener" aria-label="Abrir mesa remota">
+              <span class="room-action-icon">🖥️</span>
+              <span class="room-action-title">Mesa remota</span>
+              <small>Entrar na partida</small>
+              <span class="mini-qr" aria-hidden="true"></span>
+            </a>
+            <a id="spectatorLink" class="room-action-card" href="#" target="_blank" rel="noopener" aria-label="Abrir espectador">
+              <span class="room-action-icon">👁️</span>
+              <span class="room-action-title">Espectador</span>
+              <small>Assistir</small>
+              <span class="mini-qr" aria-hidden="true"></span>
+            </a>
+          </div>
         </div>
       </section>
     </header>
@@ -37,10 +64,17 @@
         <meter id="powerMeter" min="0" max="1" value="0.45"></meter>
       </div>
       <div>
+        <span class="label">Modo</span>
+        <strong id="aiMode">Contra amigos</strong>
+      </div>
+      <div>
+        <span class="label">Tempo</span>
+        <strong id="shotTimer">60s</strong>
+      </div>
+      <div>
         <span class="label">Jogadores</span>
         <strong id="players">0/2</strong>
       </div>
-      <button id="resetBtn" type="button">Reiniciar</button>
       <div id="assignments" class="assignments" aria-label="Placar"></div>
     </section>
 
