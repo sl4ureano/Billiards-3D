@@ -55,11 +55,14 @@ const assignmentsEl = document.querySelector("#assignments");
 const audioBtn = document.querySelector("#audioBtn");
 const aiModeEl = document.querySelector("#aiMode");
 const shotTimerEl = document.querySelector("#shotTimer");
+const winnerOverlayEl = document.querySelector("#winnerOverlay");
+const winnerTitleEl = document.querySelector("#winnerTitle");
+const winnerReasonEl = document.querySelector("#winnerReason");
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x101417);
-// Ambiente amplo e sem paredes perto da câmera: evita tela preta ao dar zoom out/rotacionar.
-scene.fog = new THREE.Fog(0x101417, 62, 180);
+scene.background = new THREE.Color(0x080b0d);
+// Salão mais escuro, com a mesa como foco principal. Mantém fundo não-preto em zoom aberto.
+scene.fog = new THREE.Fog(0x080b0d, 34, 105);
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setClearColor(0x12181b, 1);
@@ -68,7 +71,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.35;
+renderer.toneMappingExposure = 0.92;
 
 const world = new CANNON.World({ gravity: new CANNON.Vec3(0, 0, 0) });
 world.allowSleep = true;
@@ -99,33 +102,80 @@ const cameraOrbit = {
 camera.position.set(0, 5.9, 6.1);
 camera.lookAt(0, 0, 0);
 
-const ambient = new THREE.HemisphereLight(0xffffff, 0x15171a, 0.72);
+// Iluminação estilo salão de sinuca: ambiente baixo + pendente focado na mesa.
+const ambient = new THREE.HemisphereLight(0xffefe0, 0x040608, 1.10);
 scene.add(ambient);
 
-const keyLight = new THREE.DirectionalLight(0xfff3d6, 1.15);
-keyLight.position.set(-4.2, 7.5, 3.2);
+const keyLight = new THREE.DirectionalLight(0xffead0, 0.30);
+keyLight.position.set(-6.5, 8.5, 4.5);
 keyLight.castShadow = true;
-keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.shadow.mapSize.set(1024, 1024);
 keyLight.shadow.camera.near = 1;
-keyLight.shadow.camera.far = 34;
+keyLight.shadow.camera.far = 28;
 scene.add(keyLight);
 
-function addTableSpot(x) {
-  const spot = new THREE.SpotLight(0xfff4d8, 3.35, 24, 0.82, 0.58, 1.35);
-  spot.position.set(x, 4.6, 0.15);
-  spot.target.position.set(x * 0.18, 0, 0);
-  spot.castShadow = true;
-  spot.shadow.mapSize.set(2048, 2048);
-  spot.shadow.camera.near = 0.5;
-  spot.shadow.camera.far = 24;
-  scene.add(spot);
-  scene.add(spot.target);
-}
-addTableSpot(-2.2);
-addTableSpot(2.2);
+function addPoolTablePendantLighting() {
+  const fixture = new THREE.Group();
+  const darkMetal = new THREE.MeshStandardMaterial({ color: 0x15100c, roughness: 0.34, metalness: 0.55 });
+  const warmShade = new THREE.MeshStandardMaterial({ color: 0x2a1b12, roughness: 0.42, metalness: 0.18 });
+  const glowMat = new THREE.MeshStandardMaterial({
+    color: 0xfff1c5,
+    emissive: 0xffd68a,
+    emissiveIntensity: 1.25,
+    roughness: 0.22
+  });
 
-const warmBarLight = new THREE.PointLight(0xffb15f, 0.78, 26);
-warmBarLight.position.set(5, 2.8, 3.5);
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(TABLE_WIDTH * 0.72, 0.12, 0.24), darkMetal);
+  bar.position.set(0, 3.55, 0);
+  bar.castShadow = true;
+  fixture.add(bar);
+
+  const cableMat = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.5, metalness: 0.6 });
+  for (const x of [-2.6, 2.6]) {
+    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1.0, 10), cableMat);
+    cable.position.set(x, 4.08, 0);
+    fixture.add(cable);
+  }
+
+  const shadePositions = [-3.05, -1.02, 1.02, 3.05];
+  for (const x of shadePositions) {
+    const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.58, 0.34, 36, 1, true), warmShade);
+    shade.position.set(x, 3.28, 0);
+    shade.rotation.x = Math.PI;
+    shade.castShadow = true;
+    fixture.add(shade);
+
+    const diffuser = new THREE.Mesh(new THREE.CircleGeometry(0.44, 32), glowMat);
+    diffuser.rotation.x = -Math.PI / 2;
+    diffuser.position.set(x, 3.09, 0);
+    fixture.add(diffuser);
+
+    const spot = new THREE.SpotLight(0xffefc9, 4.85, 7.4, 0.54, 0.62, 2.15);
+    spot.position.set(x, 3.04, 0);
+    spot.target.position.set(x * 0.72, 0.03, 0);
+    spot.castShadow = true;
+    spot.shadow.mapSize.set(2048, 2048);
+    spot.shadow.camera.near = 0.18;
+    spot.shadow.camera.far = 8.8;
+    spot.shadow.bias = -0.00008;
+    scene.add(spot);
+    scene.add(spot.target);
+  }
+
+  // Spots auxiliares bem fracos criam queda de luz: centro claro, bordas menos iluminadas.
+  const centerBoost = new THREE.SpotLight(0xfff7df, 1.35, 6.2, 0.38, 0.82, 2.3);
+  centerBoost.position.set(0, 3.35, 0.15);
+  centerBoost.target.position.set(0, 0.02, 0);
+  centerBoost.castShadow = false;
+  scene.add(centerBoost);
+  scene.add(centerBoost.target);
+
+  scene.add(fixture);
+}
+addPoolTablePendantLighting();
+
+const warmBarLight = new THREE.PointLight(0xff9c54, 0.38, 11);
+warmBarLight.position.set(5, 2.15, 3.5);
 scene.add(warmBarLight);
 
 const tableGroup = new THREE.Group();
@@ -680,17 +730,17 @@ function handlePottedBall(ball) {
   }
 
   if (ball.suit === "eight") {
-    gameState.pocketed.eight.push(ball.number);
+    if (!gameState.pocketed.eight.includes(ball.number)) gameState.pocketed.eight.push(ball.number);
+
     const ownSuit = gameState.assignments[currentTurn];
-    const clearedOwnGroup = ownSuit && targetNumbers(ownSuit).every((number) => gameState.pocketed[ownSuit].includes(number));
-    if (!clearedOwnGroup) {
-      gameState.winner = currentTurn === 1 ? 2 : 1;
-      gameState.message = `Jogador ${gameState.winner} venceu - bola 8 caiu antes da hora`;
+    const clearedOwnGroup = hasClearedOwnGroup(currentTurn);
+
+    if (!ownSuit || !clearedOwnGroup) {
+      const winner = currentTurn === 1 ? 2 : 1;
+      endGame(winner, `Jogador ${currentTurn} encaçapou a bola 8 antes de limpar o grupo`);
     } else {
-      gameState.winner = currentTurn;
-      gameState.message = `Jogador ${currentTurn} venceu`;
+      endGame(currentTurn, `Jogador ${currentTurn} encaçapou todas as bolas e a bola 8`);
     }
-    updateHud();
     return;
   }
 
@@ -704,6 +754,25 @@ function handlePottedBall(ball) {
     gameState.pocketed[ball.suit].push(ball.number);
   }
   updateHud();
+}
+
+function hasClearedOwnGroup(playerId) {
+  const ownSuit = gameState.assignments[playerId];
+  if (!ownSuit || ownSuit === "eight") return false;
+  return targetNumbers(ownSuit).every((number) => gameState.pocketed[ownSuit].includes(number));
+}
+
+function endGame(winner, reason = "") {
+  gameState.winner = winner;
+  gameState.ballInHand = false;
+  gameState.pendingRemoveChoice = null;
+  gameState.foul = null;
+  gameState.message = `Jogador ${winner} venceu${reason ? ` · ${reason}` : ""}`;
+  cueShot.active = false;
+  cueShot.contactStarted = false;
+  cueShot.impactDone = false;
+  updateHud();
+  sendState();
 }
 
 function startShot() {
@@ -1122,13 +1191,17 @@ function updateCueLine(now = performance.now()) {
   const cueAnchor = cueShot.active ? cueShot.origin : cue.position;
   const cueLength = cueLengthBehind(cueAnchor, activeAngle);
   const tipGap = BALL_RADIUS + 0.18 + cueShotOffset(now);
+  const activeSpin = cueShot.active ? cueShot.spin : aim.spin;
+  const spinSide = clamp(Number(activeSpin?.x) || 0, -1, 1) * BALL_RADIUS * 0.62;
+  const spinHeight = clamp(Number(activeSpin?.y) || 0, -1, 1) * BALL_RADIUS * 0.52;
   setCueLineVisual({
     visible: true,
     px: cueAnchor.x,
-    py: BALL_CENTER_Y + 0.03,
+    py: BALL_CENTER_Y + 0.03 + spinHeight,
     pz: cueAnchor.y,
     angle: activeAngle,
-    pitch: CUE_PITCH,
+    pitch: CUE_PITCH + spinHeight * 0.35,
+    lateralOffset: spinSide,
     shaftX: -tipGap - cueLength / 2,
     shaftScaleY: cueLength,
     wrapX: -tipGap - cueLength + 0.35,
@@ -1153,11 +1226,23 @@ function setCueLineVisual(state) {
       .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), pitch));
   }
 
+  const lateralOffset = clamp(Number(state.lateralOffset) || 0, -BALL_RADIUS * 0.95, BALL_RADIUS * 0.95);
+  // O eixo horizontal do efeito precisa mover o taco para os lados da bola.
+  // Como o taco fica alinhado no eixo local X e inclinado no eixo Z, o deslocamento lateral correto é no eixo local Z.
+  // O eixo local Y estava sendo usado antes, mas ele aparece como subir/descer depois do pitch.
   cueLine.userData.shaft.position.x = Number(state.shaftX) || -2.2;
+  cueLine.userData.shaft.position.y = 0;
+  cueLine.userData.shaft.position.z = lateralOffset;
   cueLine.userData.shaft.scale.y = Math.max(0.2, Number(state.shaftScaleY) || 3.2);
   cueLine.userData.wrap.position.x = Number(state.wrapX) || -3.4;
+  cueLine.userData.wrap.position.y = 0;
+  cueLine.userData.wrap.position.z = lateralOffset;
   cueLine.userData.butt.position.x = Number(state.buttX) || -3.9;
+  cueLine.userData.butt.position.y = 0;
+  cueLine.userData.butt.position.z = lateralOffset;
   cueLine.userData.tip.position.x = Number(state.tipX) || -0.22;
+  cueLine.userData.tip.position.y = 0;
+  cueLine.userData.tip.position.z = lateralOffset;
 }
 
 function applyRemoteCueLine() {
@@ -1180,6 +1265,7 @@ function cueSnapshot() {
     wrapX: round(cueLine.userData.wrap.position.x),
     buttX: round(cueLine.userData.butt.position.x),
     tipX: round(cueLine.userData.tip.position.x),
+    lateralOffset: round(cueLine.userData.tip.position.z || 0),
     active: !!cueShot.active,
     impactDone: !!cueShot.impactDone,
     angle: round(cueShot.active ? cueShot.angle : aim.angle),
@@ -1326,7 +1412,7 @@ function applyCameraOrbit(value) {
 function cameraRelativeAimAngle(value) {
   const x = clamp(Number(value?.x || 0), -1, 1);
   const y = clamp(Number(value?.y || 0), -1, 1);
-  if (Math.hypot(x, y) < 0.05) return aim.angle;
+  if (Math.hypot(x, y) < 0.18) return aim.angle;
 
   const right = new THREE.Vector2(Math.cos(cameraOrbit.theta), -Math.sin(cameraOrbit.theta));
   const forward = new THREE.Vector2(-Math.sin(cameraOrbit.theta), -Math.cos(cameraOrbit.theta));
@@ -1338,7 +1424,7 @@ function updateCamera() {
   const cue = balls.find((ball) => ball.id === "cue" && !ball.sunk);
   const targetX = cue ? cue.position.x * 0.38 : 0;
   const targetZ = cue ? cue.position.y * 0.38 : 0;
-  cameraTarget.lerp(new THREE.Vector3(targetX, 0, targetZ), 0.1);
+  cameraTarget.lerp(new THREE.Vector3(targetX, 0, targetZ), 0.18);
 
   cameraOrbit.radius = clamp(cameraOrbit.radius, 5.3, 18.5);
   cameraOrbit.phi = clamp(cameraOrbit.phi, 0.38, 1.22);
@@ -1576,7 +1662,7 @@ function placeAiCueBall() {
       if (!isSpotFree(point, cue, BALL_RADIUS * 2.18)) continue;
       const nearestTarget = legal.reduce((bestDistance, ball) => Math.min(bestDistance, point.distanceTo(ball.position)), Infinity);
       const nearestPocket = pockets().reduce((bestDistance, pocket) => Math.min(bestDistance, point.distanceTo(pocket)), Infinity);
-      const score = -nearestTarget + nearestPocket * 0.18 + (Math.random() * 0.05);
+      const score = -nearestTarget + nearestPocket * 0.18 + (Math.random() * 0.18);
       if (score > bestScore) { bestScore = score; best = point; }
     }
   }
@@ -1810,7 +1896,23 @@ function updateShotClockDisplay() {
   shotTimerEl.textContent = `${Math.ceil(Math.max(0, remaining) / 1000)}s`;
 }
 
+function updateWinnerOverlay() {
+  if (!winnerOverlayEl || !winnerTitleEl || !winnerReasonEl) return;
+  if (!gameState.winner) {
+    winnerOverlayEl.classList.remove("is-visible");
+    winnerOverlayEl.setAttribute("aria-hidden", "true");
+    return;
+  }
+
+  winnerTitleEl.textContent = `Jogador ${gameState.winner} venceu!`;
+  const message = String(gameState.message || "");
+  winnerReasonEl.textContent = message.includes("·") ? message.split("·").slice(1).join("·").trim() : "Partida encerrada";
+  winnerOverlayEl.classList.add("is-visible");
+  winnerOverlayEl.setAttribute("aria-hidden", "false");
+}
+
 function updateHud() {
+  updateWinnerOverlay();
   const currentSuit = gameState.assignments[currentTurn];
   if (gameState.winner) {
     turnEl.textContent = `Jogador ${gameState.winner} venceu`;
@@ -1946,6 +2048,7 @@ function loadLightingEnvironment() {
     texture.mapping = THREE.EquirectangularReflectionMapping;
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromEquirectangular(texture).texture;
+    scene.environmentIntensity = 0.36;
     texture.dispose();
     pmrem.dispose();
   });
@@ -2147,12 +2250,12 @@ function addTableBase(material) {
 function buildRoom() {
   // Sala compacta estilo bar/salão de bilhar. Mantém abertura superior para vista de cima
   // e evita que a câmera atravesse um teto escuro ao usar zoom out.
-  const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x201815, roughness: 0.82, side: THREE.DoubleSide });
-  const accentWallMaterial = new THREE.MeshStandardMaterial({ color: 0x2b1c17, roughness: 0.8, side: THREE.DoubleSide });
-  const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x2a221d, roughness: 0.72 });
+  const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x17100e, roughness: 0.86, side: THREE.DoubleSide });
+  const accentWallMaterial = new THREE.MeshStandardMaterial({ color: 0x211510, roughness: 0.84, side: THREE.DoubleSide });
+  const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x171411, roughness: 0.78 });
 
-  const roomWidth = 19;
-  const roomDepth = 14.5;
+  const roomWidth = 15.8;
+  const roomDepth = 11.8;
   const wallHeight = 4.2;
   const wallY = 1.0;
 
@@ -2189,32 +2292,32 @@ function buildRoom() {
   addWallTrim(roomWidth, roomDepth);
 
   // Bar e ambientação.
-  addBarCounter(5.8, -6.35);
-  addBottleShelf(5.8, -6.95);
-  addBottleShelf(1.7, -6.95);
-  addTrophyShelf(-8.85, -2.5);
-  addWallFrames(-3.4, -7.18);
+  addBarCounter(4.75, -5.05);
+  addBottleShelf(4.75, -5.65);
+  addBottleShelf(1.25, -5.65);
+  addTrophyShelf(-7.35, -1.9);
+  addWallFrames(-3.2, -5.88);
 
-  addBarStool(3.9, -4.95);
-  addBarStool(5.25, -4.95);
-  addBarStool(6.6, -4.95);
+  addBarStool(3.4, -3.95);
+  addBarStool(4.75, -3.95);
+  addBarStool(6.1, -3.95);
 
-  addSpectator(-6.6, -4.9, 0.35, 0x315b8a);
-  addSpectator(-7.6, 2.9, 1.15, 0x7a4830);
-  addSpectator(7.7, 2.6, -1.25, 0x3f7a4b);
-  addSpectator(6.8, -2.0, -0.55, 0x73518d);
-  addSeatedPerson(5.25, -5.05, Math.PI, 0x284e74);
+  addSpectator(-5.85, -3.9, 0.35, 0x315b8a);
+  addSpectator(-6.55, 2.45, 1.15, 0x7a4830);
+  addSpectator(6.6, 2.05, -1.25, 0x3f7a4b);
+  addSpectator(6.0, -1.7, -0.55, 0x73518d);
+  addSeatedPerson(4.75, -4.05, Math.PI, 0x284e74);
 
   // Luzes quentes do bar + luz ambiente lateral, mais aconchegante.
-  const barLight = new THREE.PointLight(0xff9f4a, 1.55, 12);
-  barLight.position.set(5.5, 2.45, -5.8);
+  const barLight = new THREE.PointLight(0xff9f4a, 0.72, 8.5);
+  barLight.position.set(4.9, 2.05, -4.75);
   scene.add(barLight);
 
-  const wallGlow = new THREE.PointLight(0xffd39a, 0.85, 13);
-  wallGlow.position.set(-7.9, 2.1, -2.1);
+  const wallGlow = new THREE.PointLight(0xffd39a, 0.38, 8.5);
+  wallGlow.position.set(-6.8, 1.8, -1.8);
   scene.add(wallGlow);
 
-  const softFill = new THREE.HemisphereLight(0xffe5c3, 0x1a2026, 0.28);
+  const softFill = new THREE.HemisphereLight(0xffe5c3, 0x050708, 0.11);
   scene.add(softFill);
 }
 
@@ -2772,3 +2875,5 @@ function parseMessage(data) {
     return null;
   }
 }
+
+// lighting tuned v39

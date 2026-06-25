@@ -48,6 +48,11 @@
   let cameraTimer = null;
   let ws;
 
+  const AIM_SENSITIVITY = 0.46;
+  const BALL_IN_HAND_SENSITIVITY = 0.62;
+  const CAMERA_SENSITIVITY = 0.38;
+  const ANALOG_DEADZONE = 0.12;
+
   connect();
   installFullscreenUnlock();
 
@@ -254,10 +259,14 @@
 
     joystickKnob.style.transform = `translate(${x}px, ${y}px)`;
 
-    if (distance > rect.width * 0.08) {
+    const nx = clamp(x / radius, -1, 1);
+    const ny = clamp(y / radius, -1, 1);
+    const analogPower = Math.hypot(nx, ny);
+    if (analogPower > ANALOG_DEADZONE) {
+      const sensitivity = ballInHand ? BALL_IN_HAND_SENSITIVITY : AIM_SENSITIVITY;
       sendInput(ballInHand ? "place-cue" : "aim-vector", {
-        x: clamp(x / radius, -1, 1),
-        y: clamp(y / radius, -1, 1)
+        x: clamp(nx * sensitivity, -1, 1),
+        y: clamp(ny * sensitivity, -1, 1)
       });
     }
   }
@@ -314,9 +323,11 @@
     const x = distance ? (rawX / distance) * limited : 0;
     const y = distance ? (rawY / distance) * limited : 0;
 
+    const nx = clamp(x / radius, -1, 1);
+    const ny = clamp(y / radius, -1, 1);
     cameraVector = {
-      x: clamp(x / radius, -1, 1),
-      y: clamp(y / radius, -1, 1)
+      x: Math.hypot(nx, ny) < ANALOG_DEADZONE ? 0 : clamp(nx * CAMERA_SENSITIVITY, -1, 1),
+      y: Math.hypot(nx, ny) < ANALOG_DEADZONE ? 0 : clamp(ny * CAMERA_SENSITIVITY, -1, 1)
     };
     cameraKnob.style.transform = `translate(${x}px, ${y}px)`;
     sendCameraOrbit();
@@ -442,26 +453,29 @@
   }
 
   function installFullscreenUnlock() {
-    let unlocked = false;
+    let unlockInFlight = false;
 
-    const unlock = async (event) => {
-      if (unlocked) return;
-      unlocked = true;
+    const showUnlockPrompt = () => {
+      document.body.classList.remove("controller-unlocked");
+      if (startOverlay) startOverlay.classList.remove("is-hidden");
+    };
 
-      // Fullscreen precisa ser chamado primeiro, sincronizado com o toque/clique do usuário.
-      // Se chamar orientation.lock antes, o Chrome Android perde a ativação do usuário e bloqueia.
-      let fullscreenOk = false;
+    const hideUnlockPrompt = () => {
+      document.body.classList.add("controller-unlocked");
+      if (startOverlay) startOverlay.classList.add("is-hidden");
+    };
+
+    const requestControllerFullscreen = async () => {
+      if (unlockInFlight) return;
+      unlockInFlight = true;
+
       try {
         const target = document.documentElement;
         if (!document.fullscreenElement && target.requestFullscreen) {
-          const result = target.requestFullscreen({ navigationUI: "hide" });
-          fullscreenOk = true;
-          if (result?.catch) result.catch(() => {});
-        } else {
-          fullscreenOk = true;
+          await target.requestFullscreen({ navigationUI: "hide" });
         }
       } catch {
-        fullscreenOk = false;
+        // Chrome/Android só libera em gesto real; se falhar, mostramos o botão de novo.
       }
 
       try {
@@ -469,29 +483,48 @@
           await screen.orientation.lock("landscape");
         }
       } catch {
-        // Nem todo navegador permite travar orientação; o aviso visual cobre esse caso.
+        // Em alguns celulares o lock só funciona se o fullscreen foi aceito.
       }
 
-      document.body.classList.add("controller-unlocked");
-      if (startOverlay) startOverlay.classList.add("is-hidden");
+      unlockInFlight = false;
 
-      // Se o navegador recusou fullscreen, deixa um botão discreto para tentar de novo.
-      if (!fullscreenOk && startOverlay) {
-        unlocked = false;
-        startOverlay.classList.remove("is-hidden");
-        document.body.classList.remove("controller-unlocked");
+      if (document.fullscreenElement || window.matchMedia("(orientation: landscape)").matches) {
+        hideUnlockPrompt();
+      } else {
+        showUnlockPrompt();
       }
     };
 
     const bindUnlock = (element) => {
       if (!element) return;
-      element.addEventListener("click", unlock);
-      element.addEventListener("pointerup", unlock);
-      element.addEventListener("touchend", unlock, { passive: true });
+      element.addEventListener("click", (event) => {
+        event.preventDefault();
+        requestControllerFullscreen();
+      });
+      element.addEventListener("touchend", (event) => {
+        event.preventDefault();
+        requestControllerFullscreen();
+      }, { passive: false });
     };
 
     bindUnlock(startOverlay);
     bindUnlock(document.querySelector(".landscape-warning"));
+
+    document.addEventListener("fullscreenchange", () => {
+      if (document.fullscreenElement) {
+        hideUnlockPrompt();
+      } else {
+        showUnlockPrompt();
+      }
+    });
+
+    window.addEventListener("orientationchange", () => {
+      setTimeout(() => {
+        if (document.fullscreenElement || window.matchMedia("(orientation: landscape)").matches) {
+          hideUnlockPrompt();
+        }
+      }, 250);
+    });
   }
 
   function parseMessage(data) {

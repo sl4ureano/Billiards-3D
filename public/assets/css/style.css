@@ -1538,3 +1538,126 @@ meter {
   .room-panel a.room-action-card .mini-qr { width: 1.8rem !important; }
   .scorebar { grid-template-columns: repeat(3, auto) !important; }
 }
+
+/* v34: manter menu do controle visivel em fullscreen/landscape */
+.controller-body .controller-menu-btn {
+  z-index: 4200;
+}
+.controller-body .controller-menu {
+  z-index: 4300;
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .controller-body .controller-shell header {
+    display: flex !important;
+    position: fixed !important;
+    top: max(6px, env(safe-area-inset-top)) !important;
+    right: max(8px, env(safe-area-inset-right)) !important;
+    left: auto !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: 4200 !important;
+    background: transparent !important;
+    pointer-events: none !important;
+  }
+  .controller-body .controller-shell header > div {
+    display: none !important;
+  }
+  .controller-body .controller-menu-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    pointer-events: auto !important;
+    min-height: 36px !important;
+    height: 36px !important;
+    padding: 0 12px !important;
+    border-radius: 999px !important;
+    background: rgba(13, 18, 20, 0.88) !important;
+    border: 1px solid rgba(255,255,255,.22) !important;
+    box-shadow: 0 10px 26px rgba(0,0,0,.38) !important;
+    backdrop-filter: blur(10px) !important;
+    font-size: 13px !important;
+  }
+  .controller-body .controller-card {
+    padding-top: max(7px, env(safe-area-inset-top)) !important;
+  }
+}
+
+
+/* v35: menu fora do botão Tacada, reentrada fullscreen e analógicos menos sensíveis */
+@media (orientation: landscape) and (max-height: 520px) {
+  .controller-body .controller-shell header {
+    top: auto !important;
+    right: max(10px, env(safe-area-inset-right)) !important;
+    bottom: max(10px, env(safe-area-inset-bottom)) !important;
+    left: auto !important;
+  }
+  .controller-body .controller-menu-btn {
+    min-height: 38px !important;
+    height: 38px !important;
+    padding: 0 14px !important;
+  }
+  .controller-body .controller-card {
+    padding-bottom: max(48px, calc(env(safe-area-inset-bottom) + 44px)) !important;
+  }
+}
+
+.start-overlay:not(.is-hidden) {
+  display: grid !important;
+}
+
+.controller-unlocked .start-overlay.is-hidden {
+  display: none !important;
+}
+
+
+.winner-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: radial-gradient(circle at center, rgba(13, 22, 18, 0.12), rgba(0, 0, 0, 0.42));
+}
+
+.winner-overlay.is-visible {
+  display: flex;
+}
+
+.winner-card {
+  min-width: min(32rem, 88vw);
+  padding: clamp(1.2rem, 4vw, 2.6rem);
+  border: 1px solid rgba(255, 225, 140, 0.42);
+  border-radius: 1.4rem;
+  text-align: center;
+  color: #fff7d8;
+  background: linear-gradient(160deg, rgba(13, 21, 17, 0.94), rgba(38, 28, 12, 0.92));
+  box-shadow: 0 1.5rem 5rem rgba(0, 0, 0, 0.58), inset 0 0 2rem rgba(255, 197, 74, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.winner-kicker {
+  display: block;
+  margin-bottom: .45rem;
+  color: #ffcf75;
+  font-size: .82rem;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+}
+
+.winner-card strong {
+  display: block;
+  font-size: clamp(2rem, 6vw, 4.2rem);
+  line-height: 1;
+  text-shadow: 0 .25rem 1.2rem rgba(0, 0, 0, .45);
+}
+
+.winner-card p {
+  margin: .85rem 0 0;
+  color: rgba(255, 247, 216, .84);
+  font-size: clamp(.95rem, 2vw, 1.25rem);
+}
