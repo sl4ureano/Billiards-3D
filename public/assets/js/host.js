@@ -1165,14 +1165,28 @@ function finishShot() {
       }
     }
 
-    keepTurn = !!activeSuit && shot.pocketed.some((number) => ballSuit(number) === activeSuit);
+    // 8-ball: acertar primeiro a bola correta NÃO mantém a vez por si só.
+    // O jogador só continua se encaçapar legalmente pelo menos uma bola do próprio grupo
+    // na tacada atual. Se acertou certo, mas nada caiu, passa a vez.
+    const ownBallsPocketedThisShot = activeSuit
+      ? shot.pocketed.filter((number) => ballSuit(number) === activeSuit)
+      : [];
+    keepTurn = ownBallsPocketedThisShot.length > 0;
 
     if (!keepTurn) currentTurn = opponent;
     resetTurnClock();
-    gameState.message = keepTurn ? `Jogador ${currentTurn} continua` : `Vez do jogador ${currentTurn}`;
+
+    if (keepTurn) {
+      gameState.message = `Jogador ${currentTurn} continua`;
+    } else if (shot.pocketed.length === 0) {
+      gameState.message = `Nenhuma bola encaçapada. Vez do jogador ${currentTurn}`;
+    } else {
+      gameState.message = `Vez do jogador ${currentTurn}`;
+    }
   }
 
-  if (!gameState.ai.enabled && players.length < 2) currentTurn = 1;
+  // Não força mais a vez para o jogador 1 quando há só um controle conectado.
+  // Isso mascarava a regra real: se o jogador não encaçapar uma bola legal, a vez deve passar.
   gameState.breakShot = false;
   gameState.shot = null;
 }
