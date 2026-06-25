@@ -696,24 +696,11 @@ function handleInput(playerId, action, value) {
     }
     return;
   }
-  if (action === "remove-ball-choice") {
-    if (!spectatorMode) {
-      handleRemoveBallChoice(playerId, Number(value));
-      updateHud();
-      sendState();
-    }
-    return;
-  }
   sound.unlock();
 
   // No turno da IA, qualquer input humano de mira/câmera/tacada é ignorado.
   // Isso impede que o controle do jogador altere a mira global antes da IA aplicar a tacada.
   if (isAiControlledTurn()) {
-    updateHud();
-    return;
-  }
-
-  if (gameState.pendingRemoveChoice) {
     updateHud();
     return;
   }
@@ -1061,24 +1048,12 @@ function handlePottedBall(ball) {
   }
 
   if (ball.suit === "eight") {
+    // No 8-ball a bola 8 só é resolvida no fim da tacada.
+    // Isso permite considerar falta na mesma tacada, branca encaçapada,
+    // primeiro contato errado ou bola 8 antes da hora.
     if (!gameState.pocketed.eight.includes(ball.number)) gameState.pocketed.eight.push(ball.number);
-
-    const ownSuit = gameState.assignments[currentTurn];
-    const clearedOwnGroup = hasClearedOwnGroup(currentTurn);
-
-    if (!ownSuit || !clearedOwnGroup) {
-      const winner = currentTurn === 1 ? 2 : 1;
-      endGame(winner, `Jogador ${currentTurn} encaçapou a bola 8 antes de limpar o grupo`);
-    } else {
-      endGame(currentTurn, `Jogador ${currentTurn} encaçapou todas as bolas e a bola 8`);
-    }
+    updateHud();
     return;
-  }
-
-  if (!gameState.assignments[1] && !gameState.assignments[2]) {
-    gameState.assignments[currentTurn] = ball.suit;
-    gameState.assignments[currentTurn === 1 ? 2 : 1] = ball.suit === "solids" ? "stripes" : "solids";
-    gameState.message = `Jogador ${currentTurn}: ${suitLabel(ball.suit)}`;
   }
 
   if (!gameState.pocketed[ball.suit].includes(ball.number)) {
@@ -1125,8 +1100,8 @@ function finishShot() {
 
   const shot = gameState.shot;
   const player = shot.player;
-  const ownSuit = gameState.assignments[player];
   const opponent = player === 1 ? 2 : 1;
+  const ownSuit = gameState.assignments[player];
   let keepTurn = false;
 
   if (gameState.winner) {
@@ -1136,14 +1111,38 @@ function finishShot() {
 
   if (!shot.firstHit && !shot.foul) registerFoul("Nenhuma bola foi atingida");
 
-  if (ownSuit && shot.firstHit) {
+  if (shot.firstHit) {
     const firstSuit = ballSuit(shot.firstHit);
-    const ownCleared = targetNumbers(ownSuit).every((number) => gameState.pocketed[ownSuit].includes(number));
-    const validEightHit = ownCleared && firstSuit === "eight";
-    if (firstSuit !== ownSuit && !validEightHit) registerFoul("Primeiro contato na bola errada");
+    if (ownSuit) {
+      const ownCleared = hasClearedOwnGroup(player);
+      const validEightHit = ownCleared && firstSuit === "eight";
+      if (firstSuit !== ownSuit && !validEightHit) registerFoul("Primeiro contato na bola errada");
+    } else if (firstSuit === "eight") {
+      registerFoul("Primeiro contato na bola 8 com mesa aberta");
+    }
   }
 
+  const eightPocketed = shot.pocketed.includes(8);
   const foul = shot.foul || gameState.foul;
+
+  if (eightPocketed) {
+    gameState.shot = null;
+    gameState.breakShot = false;
+
+    if (foul) {
+      endGame(opponent, `Jogador ${player} encaçapou a bola 8 cometendo falta`);
+      return;
+    }
+
+    if (!ownSuit || !hasClearedOwnGroup(player)) {
+      endGame(opponent, `Jogador ${player} encaçapou a bola 8 antes de limpar o grupo`);
+      return;
+    }
+
+    endGame(player, `Jogador ${player} encaçapou todas as bolas e a bola 8`);
+    return;
+  }
+
   if (foul) {
     currentTurn = opponent;
     resetTurnClock();
@@ -1153,13 +1152,20 @@ function finishShot() {
       gameState.message = `Falta: ${foul}. Jogador ${currentTurn} com bola na mão`;
       reviveCueForBallInHand();
     }
-    if (shot.outOfTable?.length) createRemoveChoiceForFoul(player, currentTurn);
   } else {
-    if (ownSuit) {
-      keepTurn = shot.pocketed.some((number) => ballSuit(number) === ownSuit);
-    } else {
-      keepTurn = shot.pocketed.some((number) => ballSuit(number) === gameState.assignments[player]);
+    let activeSuit = ownSuit;
+
+    if (!activeSuit && !gameState.assignments[1] && !gameState.assignments[2]) {
+      const assignedSuit = shot.pocketed.map(ballSuit).find((suit) => suit === "solids" || suit === "stripes");
+      if (assignedSuit) {
+        gameState.assignments[player] = assignedSuit;
+        gameState.assignments[opponent] = assignedSuit === "solids" ? "stripes" : "solids";
+        activeSuit = assignedSuit;
+        gameState.message = `Jogador ${player}: ${suitLabel(assignedSuit)}`;
+      }
     }
+
+    keepTurn = !!activeSuit && shot.pocketed.some((number) => ballSuit(number) === activeSuit);
 
     if (!keepTurn) currentTurn = opponent;
     resetTurnClock();
@@ -1961,7 +1967,6 @@ function maybeRunAiTurn(force = false) {
 function runAiShot() {
   if (!gameState.ai.enabled || currentTurn !== AI_PLAYER_ID || gameState.winner || isMoving()) return;
 
-  if (gameState.pendingRemoveChoice?.player === AI_PLAYER_ID) chooseAiPenaltyBall();
 
   if (gameState.ballInHand) {
     placeAiCueBall();
@@ -2155,7 +2160,6 @@ function shotClockRemaining() {
 
 function updateShotClock(now) {
   if (!gameState.shotClockEnabled || gameState.winner || cueShot.active) return;
-  if (gameState.pendingRemoveChoice) return;
   const elapsed = now - gameState.turnStartedAt;
   if (elapsed < SHOT_CLOCK_SECONDS * 1000) return;
   handleShotClockExpired();
@@ -2182,52 +2186,8 @@ function handleShotClockExpired() {
   sendState();
 }
 
-function createRemoveChoiceForFoul(offender, chooser) {
-  const choices = removablePenaltyBalls(offender);
-  if (!choices.length) return;
-  gameState.pendingRemoveChoice = { player: chooser, offender, choices };
-  gameState.message = `Jogador ${chooser}: escolha uma bola do adversário para remover`;
-}
-
-function removablePenaltyBalls(offender) {
-  const suit = gameState.assignments[offender];
-  const candidates = balls.filter((ball) => !ball.sunk && ball.id !== "cue" && ball.suit !== "eight");
-  const filtered = suit ? candidates.filter((ball) => ball.suit === suit) : candidates;
-  return filtered.map((ball) => ball.number).sort((a, b) => a - b);
-}
-
-function handleRemoveBallChoice(playerId, number) {
-  const choice = gameState.pendingRemoveChoice;
-  if (!choice || choice.player !== playerId || !choice.choices.includes(number)) return;
-  const ball = balls.find((candidate) => candidate.number === number && !candidate.sunk);
-  if (ball) {
-    ball.sunk = true;
-    ball.velocity.set(0, 0);
-    ball.spin.set(0, 0);
-    if (ball.body) {
-      ball.body.velocity.set(0, 0, 0);
-      ball.body.angularVelocity.set(0, 0, 0);
-      if (world.bodies.includes(ball.body)) world.removeBody(ball.body);
-    }
-    const mesh = ballMeshes.get(ball.id);
-    if (mesh) mesh.visible = false;
-    if (ball.suit === "solids" || ball.suit === "stripes") {
-      if (!gameState.pocketed[ball.suit].includes(number)) gameState.pocketed[ball.suit].push(number);
-    }
-  }
-  gameState.pendingRemoveChoice = null;
-  gameState.ballInHand = true;
-  reviveCueForBallInHand();
-  resetTurnClock();
-  gameState.message = `Jogador ${currentTurn} com bola na mão`;
-}
-
-function chooseAiPenaltyBall() {
-  const choice = gameState.pendingRemoveChoice;
-  if (!choice || choice.player !== AI_PLAYER_ID || !choice.choices.length) return;
-  const number = choice.choices[0];
-  handleRemoveBallChoice(AI_PLAYER_ID, number);
-}
+// 8-ball: não existe escolha manual de bola para remover.
+// Bolas do adversário encaçapadas permanecem encaçapadas a favor dele; falta gera bola na mão.
 
 function updateShotClockDisplay() {
   if (!shotTimerEl) return;
@@ -2259,8 +2219,6 @@ function updateHud() {
   const currentSuit = gameState.assignments[currentTurn];
   if (gameState.winner) {
     turnEl.textContent = `Jogador ${gameState.winner} venceu`;
-  } else if (gameState.pendingRemoveChoice) {
-    turnEl.textContent = `Jogador ${gameState.pendingRemoveChoice.player} escolha uma bola`;
   } else if (gameState.ballInHand) {
     turnEl.textContent = `Jogador ${currentTurn} - bola na mão`;
   } else {
