@@ -33,7 +33,8 @@ const AI_DIFFICULTIES = {
 const TABLE_MODEL_SCALE = 3.05;
 const BALL_CENTER_Y = BALL_RADIUS + 0.006;
 const BALL_TEXTURE_PATH = "/assets/pool-table/";
-const TABLE_OUT_MARGIN = 0.04; // fora da área verde/feltro já é falta
+const TABLE_OUT_MARGIN = BALL_RADIUS * 2.2; // margem maior para evitar falso positivo por jitter/impacto na tabela
+const OUTSIDE_FRAMES_TO_FOUL = 8; // só marca falta se a bola ficar fora por vários frames
 const BALL_IN_HAND_STEP = 0.13;
 const SHOT_CLOCK_SECONDS = 60;
 const HEAD_STRING_X = -2.1;
@@ -806,7 +807,8 @@ function addBall(id, number, color, x, y) {
     velocity: new THREE.Vector2(),
     spin: new THREE.Vector2(),
     sunk: false,
-    body: null
+    body: null,
+    outsideFrames: 0
   };
   balls.push(ball);
 
@@ -874,6 +876,7 @@ function loop(now) {
 
 function stepPhysics(dt) {
   const movingBefore = isMoving();
+  const now = performance.now();
 
   world.step(PHYSICS_STEP, dt, 6);
 
@@ -896,12 +899,25 @@ function stepPhysics(dt) {
     ball.position.set(ball.body.position.x, ball.body.position.z);
     ball.velocity.set(ball.body.velocity.x, ball.body.velocity.z);
 
-    if (!gameState.ballInHand && performance.now() >= ballInHandGraceUntil && isBallOutsideTable(ball)) {
-      handleBallOffTable(ball);
-      continue;
-    }
-
+    // Primeiro verifica caçapas. Depois verifica saída da mesa com tolerância.
+    // Isso evita que uma bola perto da tabela/caçapa gere falso positivo de falta por 1 frame.
     if (!gameState.ballInHand) handlePockets(ball);
+
+    if (
+      !gameState.ballInHand &&
+      !ball.sunk &&
+      now >= ballInHandGraceUntil &&
+      isBallOutsideTable(ball)
+    ) {
+      ball.outsideFrames = (ball.outsideFrames || 0) + 1;
+
+      if (ball.outsideFrames >= OUTSIDE_FRAMES_TO_FOUL) {
+        handleBallOffTable(ball);
+        continue;
+      }
+    } else {
+      ball.outsideFrames = 0;
+    }
   }
 
   checkCueBallContacts();
@@ -937,22 +953,25 @@ function handleRails(ball) {
 }
 
 function handlePockets(ball) {
+  if (!ball.body || ball.sunk) return;
+
   for (const pocket of pockets()) {
     const distance = ball.position.distanceTo(pocket);
     const isSidePocket = Math.abs(pocket.x) < 0.001;
     const captureRadius = isSidePocket ? SIDE_POCKET_CAPTURE_RADIUS : POCKET_CAPTURE_RADIUS;
 
     // A bola só cai quando o centro realmente entra na boca da caçapa.
-    // Antes estava usando o raio visual do buraco, que fazia a bola sumir ao raspar na borda.
     if (distance > captureRadius) continue;
 
     ball.sunk = true;
+    ball.outsideFrames = 0;
     ball.velocity.set(0, 0);
     ball.spin.set(0, 0);
+
     if (ball.body) {
       ball.body.velocity.set(0, 0, 0);
       ball.body.angularVelocity.set(0, 0, 0);
-      world.removeBody(ball.body);
+      if (world.bodies.includes(ball.body)) world.removeBody(ball.body);
     }
 
     sound.play("pocket", 1.0);
@@ -1130,31 +1149,41 @@ function checkCueBallContacts() {
 
 function isBallOutsideTable(ball) {
   if (!ball.body || ball.sunk) return false;
-  // Falta assim que o centro sai da área verde jogável.
-  // Mantém uma folga minúscula para não marcar falso positivo por jitter na tabela.
+
   const limitX = TABLE_WIDTH / 2 + TABLE_OUT_MARGIN;
   const limitZ = TABLE_HEIGHT / 2 + TABLE_OUT_MARGIN;
-  return Math.abs(ball.body.position.x) > limitX || Math.abs(ball.body.position.z) > limitZ;
+
+  return (
+    Math.abs(ball.body.position.x) > limitX ||
+    Math.abs(ball.body.position.z) > limitZ
+  );
 }
 
 function handleBallOffTable(ball) {
-  if (gameState.ballInHand || performance.now() < ballInHandGraceUntil) return;
+  if (gameState.ballInHand) return;
+  if (performance.now() < ballInHandGraceUntil) return;
+  if (!gameState.shot) return;
+  if (!ball.body || ball.sunk) return;
+
   registerFoul(`${ball.id === "cue" ? "Branca" : `Bola ${ball.number}`} saiu da mesa`);
+  ball.outsideFrames = 0;
 
   if (ball.id === "cue") {
     setCueBallInHand();
     return;
   }
 
-  // Bola objetiva fora da área verde: remove da mesa para não ficar presa do lado de fora.
+  // Bola objetiva realmente fora da mesa: remove para não ficar presa fora da área jogável.
   ball.sunk = true;
   ball.velocity.set(0, 0);
   ball.spin.set(0, 0);
+
   if (ball.body) {
     ball.body.velocity.set(0, 0, 0);
     ball.body.angularVelocity.set(0, 0, 0);
     if (world.bodies.includes(ball.body)) world.removeBody(ball.body);
   }
+
   const mesh = ballMeshes.get(ball.id);
   if (mesh) mesh.visible = false;
 
