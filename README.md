@@ -1,25 +1,176 @@
-# Billiards 3D
+# 🎱 Laureano Billiards
 
-Protótipo multiplayer de sinuca 3D com mesa em Three.js, sala por código/QR e controles via WebSocket.
+Um salão de sinuca 3D totalmente interativo desenvolvido em **Three.js**, com foco em realismo, multiplayer local e arquitetura extensível para novos jogos.
 
-## Rodar
+![Screenshot](./print.png)
 
-```bash
-cd billiards-3d
-npm run dev
+---
+
+## ✨ Funcionalidades
+
+- 🎱 Salão de sinuca 3D
+- 📱 Controles via celular
+- 👥 Multiplayer
+- ⚡ Renderização otimizada
+- 🌙 Ambiente estilo pub/bar
+
+---
+
+## 🚀 Tecnologias
+
+- Three.js
+- Cannon-es.js
+- JavaScript
+- HTML5
+- CSS3
+- WebSockets
+- Node.js
+
+---
+
+## 📁 Estrutura
+
+```
+.
+├── assets/
+│   ├── textures/
+│   ├── models/
+│   └── sounds/
+│
+├── js/
+│   ├── editor.js
+│   ├── objects.js
+│   ├── lights.js
+│   ├── controls.js
+│   ├── physics.js
+│   └── game.js
+│
+├── server.js
+├── index.html
+└── README.md
 ```
 
-Abra `http://localhost:3100/table` para criar uma mesa. Escaneie o QR ou abra o link de controle em outro aparelho/aba.
+---
 
-## Checar
+## ▶️ Executando
+
+Instale as dependências
 
 ```bash
-npm run check
+npm install
 ```
 
-## Controles
+Execute
 
-- Na mesa: mova o mouse para mirar e clique para uma tacada direta.
-- Na mesa: mova o mouse para mirar e clique para uma tacada direta.
-- No controle: use os botões de câmera para girar, aproximar, afastar e resetar o ângulo da mesa.
-- No controle: use o analógico para mirar, arraste a barra vertical de força, escolha o ponto de batida na bola branca em `Efeito` e toque em `Tacada`.
+```bash
+npm start
+```
+
+Abra
+
+```
+http://localhost:3100
+```
+
+---
+
+## 🎮 Controles
+
+### Desktop
+
+| Tecla | Ação |
+|-------|------|
+| WASD | Movimentação |
+| Mouse | Câmera |
+| Clique | Interação |
+
+### Mobile
+
+- Analógico virtual
+- Botões de ação
+- Interface otimizada para touchscreen
+
+![Screenshot](./print2.jpeg)
+
+---
+
+## 🏗️ Editor
+
+O projeto possui um editor integrado para criação do ambiente.
+
+É possível:
+
+- mover objetos
+- rotacionar
+- duplicar
+- remover
+- adicionar novos elementos
+- salvar layouts
+
+---
+
+## 💡 Iluminação
+
+O ambiente utiliza múltiplas fontes de luz:
+
+- Hemisphere Light
+- Point Lights
+- Ambient Lighting
+- Luz quente estilo pub
+
+---
+
+## 🎨 Objetos
+
+Atualmente o mapa possui:
+
+- Mesas de sinuca
+- Rack de tacos
+- Prateleiras de troféus
+- Quadros
+- Bar
+- Bancadas
+- Decoração
+- Piso de madeira
+- Paredes detalhadas
+
+---
+
+## ⚙️ Performance
+
+O projeto foi pensado para manter boa performance:
+
+- reutilização de geometrias
+- materiais compartilhados
+- poucas luzes dinâmicas
+- renderização otimizada
+- baixo consumo de memória
+
+---
+
+
+## 📌 Roadmap
+
+- [X] Física das bolas
+- [X] Sons ambientes
+- [X] IA para partidas
+- [ ] Chat multiplayer
+- [ ] Sistema de ranking
+- [ ] Personalização de tacos
+- [ ] Torneios online
+
+---
+
+## 👨‍💻 Autor
+
+**Adriano Laureano**
+
+GitHub
+
+https://github.com/sl4ureano
+
+---
+
+## 📄 Licença
+
+MIT

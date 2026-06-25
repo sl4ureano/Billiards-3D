@@ -2563,7 +2563,7 @@ function buildRoom() {
   wallGlow.position.set(-6.8, 1.8, -1.8);
   scene.add(wallGlow);
 
-  const softFill = new THREE.HemisphereLight(0xffe5c3, 0x050708, 0.11);
+  const softFill = new THREE.HemisphereLight(0xffe5c3, 0x050708, 0.45);
   scene.add(softFill);
 }
 
