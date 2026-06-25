@@ -213,6 +213,104 @@ meter {
   cursor: crosshair;
 }
 
+.editor-panel {
+  position: absolute;
+  right: 1rem;
+  top: 8rem;
+  width: min(24rem, 92vw);
+  background: rgba(10, 13, 14, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  color: var(--ink);
+  padding: 1rem;
+  z-index: 10;
+}
+
+.editor-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.editor-panel h2 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.editor-panel button,
+.editor-panel input,
+.editor-panel select {
+  font: inherit;
+}
+
+.editor-panel .editor-label,
+.editor-panel .editor-field-group label {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.editor-panel select,
+.editor-panel input {
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+}
+
+.editor-panel .editor-fields {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.editor-panel .editor-field-group {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.editor-panel .editor-rotation-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.editor-rotate-btn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink);
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.editor-panel button,
+#editorSaveBtn,
+#editorApplyBtn {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  border: none;
+  background: var(--gold);
+  color: #1c1308;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.room-action-card {
+  position: relative;
+}
+
 #resetBtn,
 .shoot-button {
   border: 0;

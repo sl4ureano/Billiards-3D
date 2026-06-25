@@ -99,6 +99,7 @@ const cameraOrbit = {
   theta: 0,
   phi: 0.8
 };
+let cameraDrag = null;
 camera.position.set(0, 5.9, 6.1);
 camera.lookAt(0, 0, 0);
 
@@ -114,43 +115,216 @@ keyLight.shadow.camera.near = 1;
 keyLight.shadow.camera.far = 28;
 scene.add(keyLight);
 
+const editorTransformsKey = "billiards-editor-transforms";
+const editableObjects = [];
+let savedEditorTransforms = {};
+
+function loadSavedTransforms() {
+  const raw = localStorage.getItem(editorTransformsKey);
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+function saveEditorTransforms() {
+  const transforms = {};
+  for (const object of editableObjects) {
+    if (!object.name || object.name === "professional-pool-table") continue;
+    transforms[object.name] = {
+      position: { x: object.position.x, y: object.position.y, z: object.position.z },
+      rotation: { x: object.rotation.x, y: object.rotation.y, z: object.rotation.z }
+    };
+  }
+  localStorage.setItem(editorTransformsKey, JSON.stringify(transforms));
+  if (editorMode) statusEl && (statusEl.textContent = "Editor salvo");
+}
+
+function registerEditableObject(object, label) {
+  if (!object || !object.isObject3D) return;
+  const name = object.name || label || `editable-${editableObjects.length + 1}`;
+  object.name = name;
+  object.userData.isEditable = true;
+  object.userData.editLabel = label || name;
+  editableObjects.push(object);
+  if (savedEditorTransforms[name]) {
+    const saved = savedEditorTransforms[name];
+    object.position.set(saved.position.x, saved.position.y, saved.position.z);
+    object.rotation.set(saved.rotation.x, saved.rotation.y, saved.rotation.z);
+  }
+  if (editorMode) populateEditorObjectList();
+}
+
+function createEditorPanel() {
+  const editorPanel = document.createElement("aside");
+  editorPanel.className = "editor-panel";
+  editorPanel.innerHTML = `
+    <div class="editor-panel__header">
+      <h2>Editor</h2>
+      <button id="editorSaveBtn" type="button">Salvar</button>
+    </div>
+    <label class="editor-label">Objeto
+      <select id="editorObjectSelect"></select>
+    </label>
+    <div class="editor-fields">
+      <div class="editor-field-group">
+        <label>X<input id="editorPosX" type="number" step="0.05"></label>
+        <label>Y<input id="editorPosY" type="number" step="0.05"></label>
+        <label>Z<input id="editorPosZ" type="number" step="0.05"></label>
+      </div>
+      <div class="editor-field-group">
+        <label>Pitch (X)<input id="editorRotX" type="number" step="1"></label>
+        <label>Yaw (Y)<input id="editorRotY" type="number" step="1"></label>
+        <label>Roll (Z)<input id="editorRotZ" type="number" step="1"></label>
+      </div>
+      <div class="editor-rotation-buttons">
+        <button class="editor-rotate-btn" type="button" data-axis="x" data-delta="-15">Pitch -15°</button>
+        <button class="editor-rotate-btn" type="button" data-axis="x" data-delta="15">Pitch +15°</button>
+        <button class="editor-rotate-btn" type="button" data-axis="y" data-delta="-15">Yaw -15°</button>
+        <button class="editor-rotate-btn" type="button" data-axis="y" data-delta="15">Yaw +15°</button>
+        <button class="editor-rotate-btn" type="button" data-axis="z" data-delta="-15">Roll -15°</button>
+        <button class="editor-rotate-btn" type="button" data-axis="z" data-delta="15">Roll +15°</button>
+      </div>
+      <button id="editorApplyBtn" type="button">Aplicar</button>
+    </div>
+  `;
+  document.body.appendChild(editorPanel);
+  return editorPanel;
+}
+
+function populateEditorObjectList() {
+  const select = document.querySelector("#editorObjectSelect");
+  if (!select) return;
+  const active = select.value;
+  select.innerHTML = editableObjects
+    .filter((object) => object.userData.isEditable && object.name !== "professional-pool-table")
+    .map((object) => `<option value="${object.name}">${object.userData.editLabel || object.name}</option>`)
+    .join("");
+  if (active && [...select.options].some((option) => option.value === active)) {
+    select.value = active;
+  }
+  if (!select.value && select.options.length > 0) {
+    select.value = select.options[0].value;
+  }
+  updateEditorFields();
+}
+
+function updateEditorFields() {
+  const select = document.querySelector("#editorObjectSelect");
+  if (!select) return;
+  const object = editableObjects.find((item) => item.name === select.value);
+  const posX = document.querySelector("#editorPosX");
+  const posY = document.querySelector("#editorPosY");
+  const posZ = document.querySelector("#editorPosZ");
+  const rotX = document.querySelector("#editorRotX");
+  const rotY = document.querySelector("#editorRotY");
+  const rotZ = document.querySelector("#editorRotZ");
+  if (!object || !posX || !posY || !posZ || !rotX || !rotY || !rotZ) return;
+  posX.value = object.position.x.toFixed(2);
+  posY.value = object.position.y.toFixed(2);
+  posZ.value = object.position.z.toFixed(2);
+  rotX.value = (object.rotation.x * 180 / Math.PI).toFixed(0);
+  rotY.value = (object.rotation.y * 180 / Math.PI).toFixed(0);
+  rotZ.value = (object.rotation.z * 180 / Math.PI).toFixed(0);
+}
+
+function applyEditorValues() {
+  const select = document.querySelector("#editorObjectSelect");
+  if (!select) return;
+  const object = editableObjects.find((item) => item.name === select.value);
+  if (!object) return;
+  const posX = Number(document.querySelector("#editorPosX")?.value || 0);
+  const posY = Number(document.querySelector("#editorPosY")?.value || 0);
+  const posZ = Number(document.querySelector("#editorPosZ")?.value || 0);
+  const rotX = Number(document.querySelector("#editorRotX")?.value || 0);
+  const rotY = Number(document.querySelector("#editorRotY")?.value || 0);
+  const rotZ = Number(document.querySelector("#editorRotZ")?.value || 0);
+  object.position.set(posX, posY, posZ);
+  object.rotation.set(rotX * Math.PI / 180, rotY * Math.PI / 180, rotZ * Math.PI / 180);
+}
+
+function rotateEditorObject(axis, degrees) {
+  const select = document.querySelector("#editorObjectSelect");
+  if (!select) return;
+  const object = editableObjects.find((item) => item.name === select.value);
+  if (!object) return;
+  const radians = degrees * Math.PI / 180;
+  object.rotation[axis] += radians;
+  updateEditorFields();
+}
+
+function initEditorMode() {
+  savedEditorTransforms = loadSavedTransforms();
+  createEditorPanel();
+  populateEditorObjectList();
+  document.querySelector("#editorObjectSelect")?.addEventListener("change", updateEditorFields);
+  document.querySelectorAll(".editor-rotate-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      const axis = button.dataset.axis;
+      const delta = Number(button.dataset.delta) || 0;
+      rotateEditorObject(axis, delta);
+      saveEditorTransforms();
+    });
+  });
+  document.querySelector("#editorApplyBtn")?.addEventListener("click", () => {
+    applyEditorValues();
+    saveEditorTransforms();
+  });
+  document.querySelector("#editorSaveBtn")?.addEventListener("click", saveEditorTransforms);
+}
+
+function isEditorMode() {
+  const urlParams = new URLSearchParams(window.location.search);
+  return /\/editor\b/.test(window.location.pathname) || urlParams.get("mode") === "editor";
+}
+
+const editorMode = isEditorMode();
+if (editorMode) {
+  savedEditorTransforms = loadSavedTransforms();
+}
+
 function addPoolTablePendantLighting() {
   const fixture = new THREE.Group();
-  const darkMetal = new THREE.MeshStandardMaterial({ color: 0x15100c, roughness: 0.34, metalness: 0.55 });
-  const warmShade = new THREE.MeshStandardMaterial({ color: 0x2a1b12, roughness: 0.42, metalness: 0.18 });
-  const glowMat = new THREE.MeshStandardMaterial({
-    color: 0xfff1c5,
-    emissive: 0xffd68a,
-    emissiveIntensity: 1.25,
-    roughness: 0.22
+  fixture.name = "pool-table-light-fixture";
+  scene.add(fixture);
+
+  const loader = new GLTFLoader();
+  loader.load("/assets/pool-table/pool-table-light/source/model.glb", (gltf) => {
+    const model = gltf.scene;
+    model.name = "pool-table-light-model";
+    model.traverse((child) => {
+      if (!child.isMesh) return;
+      child.castShadow = true;
+      child.receiveShadow = true;
+      if (child.material) {
+        child.material.envMapIntensity = 0.75;
+        child.material.needsUpdate = true;
+      }
+    });
+    registerEditableObject(model, "Luminária da mesa");
+
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const longestHorizontal = Math.max(size.x, size.z, 0.001);
+    const scale = (TABLE_WIDTH * 0.64) / longestHorizontal;
+    model.scale.setScalar(scale);
+
+    const scaledCenter = center.multiplyScalar(scale);
+    const scaledSize = size.multiplyScalar(scale);
+    model.position.set(-scaledCenter.x, 3.18 - scaledCenter.y + scaledSize.y * 0.5, -scaledCenter.z);
+    fixture.add(model);
   });
 
-  const bar = new THREE.Mesh(new THREE.BoxGeometry(TABLE_WIDTH * 0.72, 0.12, 0.24), darkMetal);
-  bar.position.set(0, 3.55, 0);
-  bar.castShadow = true;
-  fixture.add(bar);
+  addPoolTablePendantLightSpots();
+}
 
-  const cableMat = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.5, metalness: 0.6 });
-  for (const x of [-2.6, 2.6]) {
-    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1.0, 10), cableMat);
-    cable.position.set(x, 4.08, 0);
-    fixture.add(cable);
-  }
-
+function addPoolTablePendantLightSpots() {
   const shadePositions = [-3.05, -1.02, 1.02, 3.05];
   for (const x of shadePositions) {
-    const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.58, 0.34, 36, 1, true), warmShade);
-    shade.position.set(x, 3.28, 0);
-    shade.rotation.x = Math.PI;
-    shade.castShadow = true;
-    fixture.add(shade);
-
-    const diffuser = new THREE.Mesh(new THREE.CircleGeometry(0.44, 32), glowMat);
-    diffuser.rotation.x = -Math.PI / 2;
-    diffuser.position.set(x, 3.09, 0);
-    fixture.add(diffuser);
-
-    const spot = new THREE.SpotLight(0xffefc9, 4.85, 7.4, 0.54, 0.62, 2.15);
+    const spot = new THREE.SpotLight(0xffefc9, 6.9, 7.4, 0.54, 0.62, 2.15);
     spot.position.set(x, 3.04, 0);
     spot.target.position.set(x * 0.72, 0.03, 0);
     spot.castShadow = true;
@@ -162,16 +336,54 @@ function addPoolTablePendantLighting() {
     scene.add(spot.target);
   }
 
-  // Spots auxiliares bem fracos criam queda de luz: centro claro, bordas menos iluminadas.
-  const centerBoost = new THREE.SpotLight(0xfff7df, 1.35, 6.2, 0.38, 0.82, 2.3);
+  const centerBoost = new THREE.SpotLight(0xfff7df, 2.05, 6.2, 0.38, 0.82, 2.3);
   centerBoost.position.set(0, 3.35, 0.15);
   centerBoost.target.position.set(0, 0.02, 0);
   centerBoost.castShadow = false;
   scene.add(centerBoost);
   scene.add(centerBoost.target);
-
-  scene.add(fixture);
 }
+
+function loadPoolRack() {
+  const loader = new GLTFLoader();
+  loader.load("/assets/pool-table/pool-rack/pool-rack.glb", (gltf) => {
+    const rack = gltf.scene;
+    rack.name = "pool-rack";
+    rack.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        if (child.material) {
+          child.material.envMapIntensity = 0.95;
+          child.material.needsUpdate = true;
+        }
+      }
+    });
+
+    const box = new THREE.Box3().setFromObject(rack);
+    const size = box.getSize(new THREE.Vector3());
+    const longestHorizontal = Math.max(size.x, size.z, 0.001);
+    const scale = (TABLE_WIDTH * 0.5) / longestHorizontal;
+    rack.scale.setScalar(scale);
+
+    // Orientação em pé para o rack, apoiado no chão.
+    rack.rotation.set(-Math.PI * 0.5, Math.PI * 0.5, 0);
+
+    const orientedBox = new THREE.Box3().setFromObject(rack);
+    const rackCenter = orientedBox.getCenter(new THREE.Vector3());
+
+    // Posição padrão do rack conforme solicitado no editor:
+    rack.rotation.set(-Math.PI * 0.5, 0, 0);
+    rack.position.set(
+      -4.0 - rackCenter.x,
+      -1.5 - orientedBox.min.y,
+      -5.8 - rackCenter.z
+    );
+    registerEditableObject(rack, "Rack de tacos");
+    tableGroup.add(rack);
+  });
+}
+
 addPoolTablePendantLighting();
 
 const warmBarLight = new THREE.PointLight(0xff9c54, 0.38, 11);
@@ -181,9 +393,12 @@ scene.add(warmBarLight);
 const tableGroup = new THREE.Group();
 scene.add(tableGroup);
 buildTable();
+loadPoolRack();
 buildRailColliders();
 buildRoom();
 loadLightingEnvironment();
+
+if (editorMode) initEditorMode();
 
 const balls = [];
 const ballMeshes = new Map();
@@ -261,16 +476,44 @@ if (spectatorMode) {
 resize();
 window.addEventListener("resize", resize);
 resetBtn?.addEventListener("click", () => { if (spectatorMode) return; sound.unlock(); resetGame(); });
+canvas.addEventListener("pointerdown", (event) => {
+  if (!editorMode) return;
+  cameraDrag = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
+  canvas.setPointerCapture(event.pointerId);
+});
 canvas.addEventListener("pointermove", (event) => {
-  if (!spectatorMode && !isAiControlledTurn()) updateAimFromPointer(event);
+  if (cameraDrag && cameraDrag.pointerId === event.pointerId) {
+    const dx = (event.clientX - cameraDrag.x) / canvas.clientWidth;
+    const dy = (event.clientY - cameraDrag.y) / canvas.clientHeight;
+    cameraOrbit.theta -= dx * 2.5;
+    cameraOrbit.phi = clamp(cameraOrbit.phi + dy * 2.5, 0.38, 1.26);
+    cameraDrag.x = event.clientX;
+    cameraDrag.y = event.clientY;
+    return;
+  }
+  if (!spectatorMode && !editorMode && !isAiControlledTurn()) updateAimFromPointer(event);
+});
+canvas.addEventListener("pointerup", (event) => {
+  if (!editorMode || !cameraDrag) return;
+  if (cameraDrag.pointerId === event.pointerId) {
+    cameraDrag = null;
+  }
+});
+canvas.addEventListener("pointercancel", () => {
+  cameraDrag = null;
+});
+canvas.addEventListener("wheel", (event) => {
+  if (!editorMode) return;
+  event.preventDefault();
+  cameraOrbit.radius = clamp(cameraOrbit.radius + (event.deltaY > 0 ? 0.36 : -0.36), 5.3, 18.5);
 });
 canvas.addEventListener("click", () => {
-  if (spectatorMode || isAiControlledTurn()) return;
+  if (spectatorMode || editorMode || isAiControlledTurn()) return;
   sound.unlock();
   shoot(aim.power);
 });
 
-connect();
+if (!editorMode) connect();
 requestAnimationFrame(loop);
 
 async function connect() {
@@ -1421,10 +1664,12 @@ function cameraRelativeAimAngle(value) {
 }
 
 function updateCamera() {
-  const cue = balls.find((ball) => ball.id === "cue" && !ball.sunk);
-  const targetX = cue ? cue.position.x * 0.38 : 0;
-  const targetZ = cue ? cue.position.y * 0.38 : 0;
-  cameraTarget.lerp(new THREE.Vector3(targetX, 0, targetZ), 0.18);
+  if (!editorMode) {
+    const cue = balls.find((ball) => ball.id === "cue" && !ball.sunk);
+    const targetX = cue ? cue.position.x * 0.38 : 0;
+    const targetZ = cue ? cue.position.y * 0.38 : 0;
+    cameraTarget.lerp(new THREE.Vector3(targetX, 0, targetZ), 0.18);
+  }
 
   cameraOrbit.radius = clamp(cameraOrbit.radius, 5.3, 18.5);
   cameraOrbit.phi = clamp(cameraOrbit.phi, 0.38, 1.22);
@@ -1974,6 +2219,7 @@ function buildTable() {
     });
     feltFallback.visible = false;
     tableGroup.add(model);
+    registerEditableObject(model, "Mesa de sinuca");
   }, undefined, () => {
     buildFallbackRails();
   });
@@ -2343,64 +2589,98 @@ function addBarCounter(x, z) {
   const wood = new THREE.MeshStandardMaterial({ color: 0x4b2615, roughness: 0.48, metalness: 0.03 });
   const darkWood = new THREE.MeshStandardMaterial({ color: 0x24110b, roughness: 0.55 });
   const brass = new THREE.MeshStandardMaterial({ color: 0xc28a38, roughness: 0.28, metalness: 0.55 });
+  const group = new THREE.Group();
+  group.name = `bar-counter-${x.toFixed(2)}-${z.toFixed(2)}`;
 
   const counter = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.95, 0.82), wood);
   counter.position.set(x, -0.83, z + 0.55);
   counter.castShadow = true;
   counter.receiveShadow = true;
-  scene.add(counter);
+  group.add(counter);
 
   const top = new THREE.Mesh(new THREE.BoxGeometry(5.75, 0.12, 1.0), darkWood);
   top.position.set(x, -0.28, z + 0.55);
   top.castShadow = true;
   top.receiveShadow = true;
-  scene.add(top);
+  group.add(top);
 
   const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 5.6, 18), brass);
   rail.rotation.z = Math.PI / 2;
   rail.position.set(x, -0.38, z + 1.12);
   rail.castShadow = true;
-  scene.add(rail);
+  group.add(rail);
 
   const backPanel = new THREE.Mesh(new THREE.BoxGeometry(5.9, 1.75, 0.18), new THREE.MeshStandardMaterial({ color: 0x1a0f0b, roughness: 0.62 }));
   backPanel.position.set(x, 0.4, z - 0.18);
   backPanel.receiveShadow = true;
-  scene.add(backPanel);
+  group.add(backPanel);
+
+  scene.add(group);
+  registerEditableObject(group, `Bar ${x.toFixed(1)}, ${z.toFixed(1)}`);
 }
 
 function addBarStool(x, z) {
   const seatMat = new THREE.MeshStandardMaterial({ color: 0x3b1d13, roughness: 0.48 });
   const metal = new THREE.MeshStandardMaterial({ color: 0xb79056, roughness: 0.24, metalness: 0.65 });
+  const group = new THREE.Group();
+  group.name = `bar-stool-${x.toFixed(2)}-${z.toFixed(2)}`;
+
   const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.34, 0.1, 24), seatMat);
   seat.position.set(x, -0.52, z);
   seat.castShadow = true;
-  scene.add(seat);
+  group.add(seat);
   const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.76, 14), metal);
   leg.position.set(x, -0.94, z);
   leg.castShadow = true;
-  scene.add(leg);
+  group.add(leg);
   const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.035, 18), metal);
   foot.position.set(x, -1.31, z);
   foot.castShadow = true;
-  scene.add(foot);
+  group.add(foot);
+
+  scene.add(group);
+  registerEditableObject(group, `Banqueta ${x.toFixed(1)}, ${z.toFixed(1)}`);
 }
 
 function addTrophyShelf(x, z) {
+  const group = new THREE.Group();
+  group.name = `trophy-shelf-${x.toFixed(2)}-${z.toFixed(2)}`;
+
   const shelfMat = new THREE.MeshStandardMaterial({ color: 0x24130d, roughness: 0.52 });
   const gold = new THREE.MeshStandardMaterial({ color: 0xd7a73a, roughness: 0.24, metalness: 0.8 });
   const silver = new THREE.MeshStandardMaterial({ color: 0xcfd5d6, roughness: 0.22, metalness: 0.75 });
+
   for (let row = 0; row < 3; row++) {
-    const shelf = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.1, 3.7), shelfMat);
+    const shelf = new THREE.Mesh(
+      new THREE.BoxGeometry(0.30, 0.1, 3.7),
+      shelfMat
+    );
+
     shelf.position.set(x, 0.2 + row * 0.62, z + 0.2);
-    shelf.rotation.y = Math.PI / 2;
-    scene.add(shelf);
+
+    // troca aqui:
+    shelf.rotation.y = 0; 
+    // se ainda ficar errado, use:
+    // shelf.rotation.y = Math.PI / 2;
+
+    group.add(shelf);
+
     for (let i = 0; i < 4; i++) {
-      addTrophy(x + 0.16, 0.43 + row * 0.62, z - 1.35 + i * 0.9, (i + row) % 2 ? silver : gold);
+      addTrophy(
+        x + 0.01,
+        0.43 + row * 0.62,
+        z - 1.35 + i * 0.9,
+        (i + row) % 2 ? silver : gold,
+        group
+      );
     }
   }
+
+  scene.add(group);
+  registerEditableObject(group, "Prateleira de troféus");
 }
 
-function addTrophy(x, y, z, material) {
+function addTrophy(x, y, z, material, parent = scene) {
   const cup = new THREE.Group();
   const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.16, 0.22, 20), material);
   bowl.position.y = 0.14;
@@ -2412,7 +2692,7 @@ function addTrophy(x, y, z, material) {
   cup.position.set(x, y, z);
   cup.rotation.y = Math.PI / 2;
   cup.traverse((o) => { if (o.isMesh) o.castShadow = true; });
-  scene.add(cup);
+  parent.add(cup);
 }
 
 function addWallFrames(x, z) {

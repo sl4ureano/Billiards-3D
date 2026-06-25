@@ -6,12 +6,16 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js",
+    "dev": "concurrently \"node --watch server.js\" \"browser-sync start --proxy localhost:3100 --files 'public/**/*, views/**/*, *.html, *.css, *.js'\"",
     "check": "node --check server.js && node --check public/assets/js/host.js && node --check public/assets/js/controller.js"
   },
   "dependencies": {
     "express": "^4.18.3",
     "qrcode": "^1.5.3",
     "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "browser-sync": "^3.0.4",
+    "concurrently": "^10.0.3"
   }
 }

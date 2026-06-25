@@ -19,6 +19,7 @@ app.get("/controller", (req, res) => res.sendFile(path.join(__dirname, "public",
 app.get("/spectator", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 app.get("/viewer", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 app.get("/play", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
+app.get("/editor", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 
 app.get("/new-session", async (req, res) => {
   let code = makeCode();
