@@ -3002,19 +3002,25 @@ function suitLabel(suit) {
 
 function createSoundManager() {
   const base = "/assets/sound/";
+  const musicBase = "/assets/sound/music/";
+
   const files = {
     cue: "tableHit.wav",
     ball: "ball_ball.mp3",
     rail: "ball_edge.mp3",
     pocket: "ball_fall.mp3",
-    music: "Rack_Em_Up_Jonny_Lang.mp3",
     room: "env.mp3",
     people: "peopleTalking1.wav"
   };
+
   const oneShots = new Map();
   const loops = new Map();
   const lastPlayed = new Map();
+
   let enabled = false;
+  let musicAudio = null;
+  let musicList = [];
+  let lastMusicIndex = -1;
 
   function makeAudio(name, loop = false, volume = 1) {
     const audio = new Audio(base + files[name]);
@@ -3024,11 +3030,66 @@ function createSoundManager() {
     return audio;
   }
 
-  for (const name of ["cue", "ball", "rail", "pocket"]) {
-    oneShots.set(name, Array.from({ length: name === "ball" ? 6 : 3 }, () => makeAudio(name)));
+  function makeMusicAudio(file) {
+    const audio = new Audio(musicBase + encodeURIComponent(file));
+    audio.preload = "auto";
+    audio.loop = false;
+    audio.volume = 0.16;
+    audio.addEventListener("ended", playRandomMusic);
+    return audio;
   }
 
-  loops.set("music", makeAudio("music", true, 0.16));
+  async function loadMusicList() {
+    try {
+      const res = await fetch(musicBase + "manifest.json", { cache: "no-store" });
+      if (!res.ok) throw new Error("manifest.json não encontrado");
+
+      const list = await res.json();
+
+      musicList = list.filter((file) =>
+        /\.(mp3|wav|ogg|m4a)$/i.test(file)
+      );
+    } catch (err) {
+      console.warn("Não foi possível carregar lista de músicas:", err);
+      musicList = [];
+    }
+  }
+
+  function pickRandomMusicIndex() {
+    if (musicList.length === 0) return -1;
+    if (musicList.length === 1) return 0;
+
+    let index;
+    do {
+      index = Math.floor(Math.random() * musicList.length);
+    } while (index === lastMusicIndex);
+
+    lastMusicIndex = index;
+    return index;
+  }
+
+  function playRandomMusic() {
+    if (!enabled || musicList.length === 0) return;
+
+    const index = pickRandomMusicIndex();
+    if (index < 0) return;
+
+    if (musicAudio) {
+      musicAudio.pause();
+      musicAudio.removeEventListener("ended", playRandomMusic);
+    }
+
+    musicAudio = makeMusicAudio(musicList[index]);
+    musicAudio.play().catch(() => {});
+  }
+
+  for (const name of ["cue", "ball", "rail", "pocket"]) {
+    oneShots.set(
+      name,
+      Array.from({ length: name === "ball" ? 6 : 3 }, () => makeAudio(name))
+    );
+  }
+
   loops.set("room", makeAudio("room", true, 0.22));
   loops.set("people", makeAudio("people", true, 0.13));
 
@@ -3041,23 +3102,37 @@ function createSoundManager() {
 
   async function unlock() {
     if (enabled) return true;
+
     enabled = true;
     updateButton();
-    const promises = [];
+
+    await loadMusicList();
+
     for (const audio of loops.values()) {
       audio.currentTime = 0;
-      promises.push(audio.play().catch(() => {}));
+      audio.play().catch(() => {});
     }
-    return Promise.all(promises).then(() => true);
+
+    playRandomMusic();
+
+    return true;
   }
 
   function disable() {
     if (!enabled) return;
+
     enabled = false;
     updateButton();
+
+    if (musicAudio) {
+      musicAudio.pause();
+      musicAudio.currentTime = 0;
+    }
+
     for (const audio of loops.values()) {
       audio.pause();
     }
+
     for (const pool of oneShots.values()) {
       for (const audio of pool) {
         audio.pause();
@@ -3075,19 +3150,26 @@ function createSoundManager() {
       unlock();
       return true;
     }
+
     disable();
     return false;
   }
 
   function play(name, volume = 1) {
     if (!enabled) return;
+
     const now = performance.now();
     const minGap = name === "ball" ? 42 : name === "rail" ? 70 : 95;
+
     if (now - (lastPlayed.get(name) || 0) < minGap) return;
+
     lastPlayed.set(name, now);
+
     const pool = oneShots.get(name);
     if (!pool) return;
+
     const audio = pool.find((item) => item.paused || item.ended) || pool[0];
+
     audio.pause();
     audio.currentTime = 0;
     audio.volume = clamp(volume, 0, 1);
@@ -3095,6 +3177,7 @@ function createSoundManager() {
   }
 
   updateButton();
+
   function isEnabled() {
     return enabled;
   }
