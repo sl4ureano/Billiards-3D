@@ -7,8 +7,14 @@ const TABLE_WIDTH = 8.4;
 const TABLE_HEIGHT = 4.2;
 const BALL_RADIUS = 0.11;
 const POCKET_RADIUS = 0.38;
-const POCKET_CAPTURE_RADIUS = BALL_RADIUS * 1.78;
-const SIDE_POCKET_CAPTURE_RADIUS = BALL_RADIUS * 1.62;
+// A caçapa visual continua grande, mas a física não usa mais raio circular de captura.
+// A bola só é removida quando o centro passa para a garganta interna da caçapa.
+const CORNER_POCKET_MOUTH = BALL_RADIUS * 5.65;
+const SIDE_POCKET_MOUTH = BALL_RADIUS * 5.8;
+const CORNER_POCKET_THROAT_RADIUS = BALL_RADIUS * 2.85;
+const SIDE_POCKET_THROAT_RADIUS = BALL_RADIUS * 2.25;
+const JAW_LENGTH = BALL_RADIUS * 3.25;
+const JAW_THICKNESS = BALL_RADIUS * 1.38;
 const POCKET_VISUAL_RADIUS = POCKET_RADIUS * 0.78;
 const POCKET_RAIL_GAP = POCKET_VISUAL_RADIUS * 2.35;
 const RAIL_THICKNESS = 0.46;
@@ -955,13 +961,11 @@ function handleRails(ball) {
 function handlePockets(ball) {
   if (!ball.body || ball.sunk) return;
 
-  for (const pocket of pockets()) {
-    const distance = ball.position.distanceTo(pocket);
-    const isSidePocket = Math.abs(pocket.x) < 0.001;
-    const captureRadius = isSidePocket ? SIDE_POCKET_CAPTURE_RADIUS : POCKET_CAPTURE_RADIUS;
-
-    // A bola só cai quando o centro realmente entra na boca da caçapa.
-    if (distance > captureRadius) continue;
+  // Não existe mais “raio de sucção” na boca da caçapa.
+  // Os bicos/borrachas são colisores estáticos do Cannon; aqui só detectamos
+  // a bola depois que o centro dela já passou pela boca e entrou na garganta.
+  for (const pocket of pocketDefs()) {
+    if (!isBallInsidePocketThroat(ball.body.position, pocket)) continue;
 
     ball.sunk = true;
     ball.outsideFrames = 0;
@@ -984,6 +988,71 @@ function handlePockets(ball) {
     }
     return;
   }
+}
+
+function isBallInsidePocketThroat(position, pocket) {
+  const x = TABLE_WIDTH / 2;
+  const z = TABLE_HEIGHT / 2;
+
+  if (pocket.type === "side") {
+    // Caçapa do meio é uma abertura reta na tabela longa.
+    // A versão anterior exigia também estar dentro de um círculo pequeno
+    // centrado no fundo visual da caçapa; em tacadas retas a bola batia/era
+    // freada pelos jaws antes de satisfazer esse círculo e nunca encaçapava.
+    // A física dos bicos continua sendo feita pelos corpos estáticos; aqui
+    // apenas detectamos que o centro cruzou a boca aberta entre os jaws.
+    const localZ = pocket.sz * position.z;
+    const crossedMouth = localZ > z - BALL_RADIUS * 0.72;
+    const withinMouth = Math.abs(position.x - pocket.x) < SIDE_POCKET_MOUTH * 0.5 - BALL_RADIUS * 0.18;
+    const notPastPocketBack = localZ < z + BALL_RADIUS * 2.75;
+    return crossedMouth && withinMouth && notPastPocketBack;
+  }
+
+  // Caçapas de canto: detecção por GARGANTA DIAGONAL, não por círculo.
+  //
+  // gapX/gapZ são as distâncias do centro da bola até as duas bordas internas
+  // do canto, medidas no espaço local da caçapa. Em uma bola fazendo tabela na
+  // quina, um desses gaps fica pequeno, mas o outro continua grande; por isso
+  // ela não pode ser removida. Em uma bola que realmente entrou no canto, os
+  // dois gaps ficam pequenos e equilibrados, atrás da linha diagonal formada
+  // entre os dois jaws.
+  const localX = pocket.sx * position.x;
+  const localZ = pocket.sz * position.z;
+  const gapX = x - localX;
+  const gapZ = z - localZ;
+
+  // Valores calibrados para os cantos:
+  // 1) não detecta na quina/bico: se a bola está raspando uma borracha e ainda
+  //    longe da outra, isso é jogada de tabela, não encaçapada;
+  // 2) só detecta depois da linha diagonal entre os jaws;
+  // 3) aceita a bola quando ela já está no copo visual interno, mesmo que venha
+  //    com pequeno corte.
+  const throatWidth = CORNER_POCKET_MOUTH * 0.70;
+  const throatLine = CORNER_POCKET_MOUTH * 0.58;
+  const maxImbalance = CORNER_POCKET_MOUTH * 0.36;
+  const jawBankGuard = BALL_RADIUS * 0.82;
+  const oppositeJawStillFar = BALL_RADIUS * 1.72;
+  const pocketWellRadius = BALL_RADIUS * 1.55;
+
+  const minGap = Math.min(gapX, gapZ);
+  const maxGap = Math.max(gapX, gapZ);
+
+  // Zona morta da tabela no bico da caçapa: a bola pode encostar no jaw e
+  // voltar naturalmente pelo Cannon sem a lógica removê-la.
+  const isBankingOnOneJaw = minGap > -BALL_RADIUS * 0.55 && minGap < jawBankGuard && maxGap > oppositeJawStillFar;
+  if (isBankingOnOneJaw) return false;
+
+  const insideCornerThroat =
+    gapX > -BALL_RADIUS * 1.45 &&
+    gapZ > -BALL_RADIUS * 1.45 &&
+    gapX < throatWidth &&
+    gapZ < throatWidth;
+
+  const crossedDiagonalThroat = gapX + gapZ < throatLine;
+  const enteredBetweenJaws = Math.abs(gapX - gapZ) < maxImbalance;
+  const insidePocketWell = gapX * gapX + gapZ * gapZ < pocketWellRadius * pocketWellRadius;
+
+  return insideCornerThroat && ((crossedDiagonalThroat && enteredBetweenJaws) || insidePocketWell);
 }
 
 function handlePottedBall(ball) {
@@ -1955,7 +2024,7 @@ function aiCueScratchRisk(angle, power = 0.55) {
     const closest = cue.position.clone().addScaledVector(dir, along);
     const miss = closest.distanceTo(pocket);
     const directLineClear = isLineMostlyClear(cue.position, pocket, null);
-    const capture = (Math.abs(pocket.x) < 0.001 ? SIDE_POCKET_CAPTURE_RADIUS : POCKET_CAPTURE_RADIUS) + BALL_RADIUS * 0.45;
+    const capture = (Math.abs(pocket.x) < 0.001 ? SIDE_POCKET_THROAT_RADIUS : CORNER_POCKET_THROAT_RADIUS) + BALL_RADIUS * 0.45;
     if (miss < capture && directLineClear) {
       const distanceFactor = clamp(1 - along / 7.5, 0.2, 1);
       risk = Math.max(risk, (1 - miss / capture) * distanceFactor * clamp(power, 0.25, 1));
@@ -2255,30 +2324,89 @@ function buildTable() {
 }
 
 function buildRailColliders() {
-  const cornerRailGap = POCKET_RAIL_GAP * 0.52;
-  const sideRailGap = POCKET_RAIL_GAP * 1.05;
-  const longRailLength = (TABLE_WIDTH - sideRailGap - cornerRailGap * 2) / 2;
-  const longRailOffset = sideRailGap / 2 + longRailLength / 2;
-  const shortRailLength = TABLE_HEIGHT - cornerRailGap * 2;
-  const railZ = TABLE_HEIGHT / 2 + RAIL_THICKNESS * 0.22;
-  const railX = TABLE_WIDTH / 2 + RAIL_THICKNESS * 0.22;
+  // Mesa física: seis trechos retos de cushion + jaws nas seis caçapas.
+  // Aberturas ficam vazias; os bicos são corpos estáticos reais, não lógica.
+  const x = TABLE_WIDTH / 2;
+  const z = TABLE_HEIGHT / 2;
+  const cornerGap = CORNER_POCKET_MOUTH;
+  const sideGap = SIDE_POCKET_MOUTH;
+  const railDepth = JAW_THICKNESS;
+  const railZ = z + railDepth * 0.48;
+  const railX = x + railDepth * 0.48;
+  const longRailLength = (TABLE_WIDTH - sideGap - cornerGap * 2) / 2;
+  const longRailOffset = sideGap / 2 + longRailLength / 2;
+  const shortRailLength = TABLE_HEIGHT - cornerGap * 2;
 
-  addRailCollider(longRailLength, 0.18, -longRailOffset, railZ);
-  addRailCollider(longRailLength, 0.18, longRailOffset, railZ);
-  addRailCollider(longRailLength, 0.18, -longRailOffset, -railZ);
-  addRailCollider(longRailLength, 0.18, longRailOffset, -railZ);
-  addRailCollider(0.18, shortRailLength, railX, 0);
-  addRailCollider(0.18, shortRailLength, -railX, 0);
+  addRailCollider(longRailLength, railDepth, -longRailOffset, railZ);
+  addRailCollider(longRailLength, railDepth, longRailOffset, railZ);
+  addRailCollider(longRailLength, railDepth, -longRailOffset, -railZ);
+  addRailCollider(longRailLength, railDepth, longRailOffset, -railZ);
+  addRailCollider(railDepth, shortRailLength, railX, 0);
+  addRailCollider(railDepth, shortRailLength, -railX, 0);
+
+  addCornerJawColliders(cornerGap);
+  addSideJawColliders(sideGap);
 }
 
-function addRailCollider(width, depth, x, z) {
+function addCornerJawColliders(cornerGap) {
+  const x = TABLE_WIDTH / 2;
+  const z = TABLE_HEIGHT / 2;
+  const jawInset = cornerGap * 0.43;
+  const jawAngle = 0.44;
+
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      // Bico ligado ao cushion longo.
+      addRailCollider(
+        JAW_LENGTH,
+        JAW_THICKNESS,
+        sx * (x - jawInset),
+        sz * (z + JAW_THICKNESS * 0.22),
+        -sx * sz * jawAngle,
+        "jaw"
+      );
+
+      // Bico ligado ao cushion curto.
+      addRailCollider(
+        JAW_THICKNESS,
+        JAW_LENGTH,
+        sx * (x + JAW_THICKNESS * 0.22),
+        sz * (z - jawInset),
+        sx * sz * jawAngle,
+        "jaw"
+      );
+    }
+  }
+}
+
+function addSideJawColliders(sideGap) {
+  const z = TABLE_HEIGHT / 2;
+  const jawAngle = 0.34;
+  const jawOffset = sideGap * 0.5 + JAW_LENGTH * 0.22;
+
+  for (const sz of [-1, 1]) {
+    for (const side of [-1, 1]) {
+      addRailCollider(
+        JAW_LENGTH,
+        JAW_THICKNESS,
+        side * jawOffset,
+        sz * (z + JAW_THICKNESS * 0.22),
+        -side * sz * jawAngle,
+        "jaw"
+      );
+    }
+  }
+}
+
+function addRailCollider(width, depth, x, z, angle = 0, type = "rail") {
   const body = new CANNON.Body({
     mass: 0,
     material: railMaterial,
     position: new CANNON.Vec3(x, BALL_CENTER_Y, z),
     shape: new CANNON.Box(new CANNON.Vec3(width / 2, 0.34, depth / 2))
   });
-  body.userData = { type: "rail" };
+  if (angle) body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), angle);
+  body.userData = { type: "rail", railKind: type };
   world.addBody(body);
 }
 
@@ -2859,15 +2987,19 @@ function cueLengthBehind(position, angle) {
 }
 
 function pockets() {
+  return pocketDefs().map((pocket) => new THREE.Vector2(pocket.x, pocket.z));
+}
+
+function pocketDefs() {
   const x = TABLE_WIDTH / 2;
-  const y = TABLE_HEIGHT / 2;
+  const z = TABLE_HEIGHT / 2;
   return [
-    new THREE.Vector2(-x, -y),
-    new THREE.Vector2(0, -y - 0.04),
-    new THREE.Vector2(x, -y),
-    new THREE.Vector2(-x, y),
-    new THREE.Vector2(0, y + 0.04),
-    new THREE.Vector2(x, y)
+    { type: "corner", x: -x, z: -z, sx: -1, sz: -1 },
+    { type: "side", x: 0, z: -z - 0.04, sx: 0, sz: -1 },
+    { type: "corner", x, z: -z, sx: 1, sz: -1 },
+    { type: "corner", x: -x, z, sx: -1, sz: 1 },
+    { type: "side", x: 0, z: z + 0.04, sx: 0, sz: 1 },
+    { type: "corner", x, z, sx: 1, sz: 1 }
   ];
 }
 
