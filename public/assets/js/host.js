@@ -463,6 +463,11 @@ const remoteTargets = new Map();
 let remoteCueState = null;
 let ballInHandGraceUntil = 0;
 let lastBallInHandFoul = null;
+const keyboardState = {
+  keys: new Set(),
+  lastCameraSent: 0
+};
+
 
 const cueLine = makeCueLine();
 scene.add(cueLine);
@@ -482,6 +487,9 @@ if (spectatorMode) {
 }
 resize();
 window.addEventListener("resize", resize);
+window.addEventListener("keydown", handleKeyboardDown);
+window.addEventListener("keyup", handleKeyboardUp);
+window.addEventListener("blur", () => keyboardState.keys.clear());
 resetBtn?.addEventListener("click", () => { if (spectatorMode) return; sound.unlock(); resetGame(); });
 canvas.addEventListener("pointerdown", (event) => {
   if (!editorMode) return;
@@ -510,9 +518,25 @@ canvas.addEventListener("pointercancel", () => {
   cameraDrag = null;
 });
 canvas.addEventListener("wheel", (event) => {
-  if (!editorMode) return;
+  // No editor, o scroll continua controlando o zoom da câmera.
+  if (editorMode) {
+    event.preventDefault();
+    cameraOrbit.radius = clamp(cameraOrbit.radius + (event.deltaY > 0 ? 0.36 : -0.36), 5.3, 18.5);
+    return;
+  }
+
+  // Durante a partida, o scroll controla a força da tacada para quem joga
+  // sem controle conectado. Não mexe na física nem dispara tacada sozinho.
+  if (spectatorMode || isAiControlledTurn() || gameState.winner || gameState.ballInHand || isMoving()) return;
+
   event.preventDefault();
-  cameraOrbit.radius = clamp(cameraOrbit.radius + (event.deltaY > 0 ? 0.36 : -0.36), 5.3, 18.5);
+  sound.unlock();
+
+  const direction = event.deltaY < 0 ? 1 : -1;
+  const step = event.shiftKey ? 0.025 : 0.055;
+  aim.power = clamp(aim.power + direction * step, 0.12, 1);
+  updateHud();
+  sendState();
 });
 canvas.addEventListener("click", () => {
   if (spectatorMode || editorMode || isAiControlledTurn()) return;
@@ -656,6 +680,71 @@ function configureRoomAction(anchor, url, icon, title, subtitle) {
     <small>${subtitle}</small>
     <span class="mini-qr" aria-hidden="true"><img alt="" src="/qr-link?url=${encodeURIComponent(url)}"></span>
   `;
+}
+
+
+function isEditableKeyboardTarget(target) {
+  if (!target) return false;
+  const tagName = String(target.tagName || "").toLowerCase();
+  return tagName === "input" || tagName === "textarea" || tagName === "select" || target.isContentEditable;
+}
+
+function handleKeyboardDown(event) {
+  if (isEditableKeyboardTarget(event.target)) return;
+  const code = event.code || event.key;
+
+  if (["KeyW", "KeyA", "KeyS", "KeyD", "Enter", "NumpadEnter"].includes(code)) {
+    event.preventDefault();
+    sound.unlock();
+  }
+
+  if (code === "Enter" || code === "NumpadEnter") {
+    if (!event.repeat) handleKeyboardAction();
+    return;
+  }
+
+  if (["KeyW", "KeyA", "KeyS", "KeyD"].includes(code)) {
+    keyboardState.keys.add(code);
+  }
+}
+
+function handleKeyboardUp(event) {
+  const code = event.code || event.key;
+  if (["KeyW", "KeyA", "KeyS", "KeyD"].includes(code)) keyboardState.keys.delete(code);
+}
+
+function handleKeyboardAction() {
+  if (spectatorMode || editorMode || isAiControlledTurn() || gameState.winner) return;
+
+  // Enter vira o botão de ação do controle: confirma a branca na mão quando
+  // ela está sendo posicionada; caso contrário executa a tacada do turno atual.
+  if (gameState.ballInHand) {
+    if (currentTurn === 1 || currentTurn === 2) {
+      confirmCueBallInHand();
+      updateHud();
+      sendState();
+    }
+    return;
+  }
+
+  if (isMoving()) return;
+  shoot(aim.power);
+  updateHud();
+  sendState();
+}
+
+function updateKeyboardInput(now) {
+  if (!keyboardState.keys.size || editorMode) return;
+
+  // WASD move a câmera continuamente, mesmo sem controle conectado.
+  // Faz throttle para manter a sensação do controle sem girar rápido demais por frame.
+  if (now - keyboardState.lastCameraSent < 16) return;
+  keyboardState.lastCameraSent = now;
+
+  if (keyboardState.keys.has("KeyA")) applyCameraInput("camera-left");
+  if (keyboardState.keys.has("KeyD")) applyCameraInput("camera-right");
+  if (keyboardState.keys.has("KeyW")) applyCameraInput("camera-up");
+  if (keyboardState.keys.has("KeyS")) applyCameraInput("camera-down");
 }
 
 function isAiControlledTurn() {
@@ -844,6 +933,7 @@ function loop(now) {
   lastTime = now;
 
   if (!spectatorMode) {
+    updateKeyboardInput(now);
     updateCueShot(now);
     stepPhysics(dt);
     updateShotClock(now);
