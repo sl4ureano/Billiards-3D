@@ -955,7 +955,7 @@ function handlePockets(ball) {
       world.removeBody(ball.body);
     }
 
-    sound.play("pocket", 0.95);
+    sound.play("pocket", 1.0);
 
     if (ball.id === "cue") {
       registerFoul("Branca encaçapada");
@@ -3020,7 +3020,8 @@ function createSoundManager() {
   let enabled = false;
   let musicAudio = null;
   let musicList = [];
-  let lastMusicIndex = -1;
+  let musicQueue = [];
+  let lastPlayedMusic = null;
 
   function makeAudio(name, loop = false, volume = 1) {
     const audio = new Audio(base + files[name]);
@@ -3031,10 +3032,10 @@ function createSoundManager() {
   }
 
   function makeMusicAudio(file) {
-    const audio = new Audio(musicBase + encodeURIComponent(file));
+    const audio = new Audio(musicBase + file);
     audio.preload = "auto";
     audio.loop = false;
-    audio.volume = 0.16;
+    audio.volume = 0.18;
     audio.addEventListener("ended", playRandomMusic);
     return audio;
   }
@@ -3049,38 +3050,76 @@ function createSoundManager() {
       musicList = list.filter((file) =>
         /\.(mp3|wav|ogg|m4a)$/i.test(file)
       );
+
+      refillMusicQueue();
     } catch (err) {
       console.warn("Não foi possível carregar lista de músicas:", err);
       musicList = [];
+      musicQueue = [];
     }
   }
 
-  function pickRandomMusicIndex() {
-    if (musicList.length === 0) return -1;
-    if (musicList.length === 1) return 0;
+  function shuffle(array) {
+    const copy = [...array];
 
-    let index;
-    do {
-      index = Math.floor(Math.random() * musicList.length);
-    } while (index === lastMusicIndex);
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
 
-    lastMusicIndex = index;
-    return index;
+    return copy;
+  }
+
+  function refillMusicQueue() {
+    musicQueue = shuffle(musicList);
+
+    if (
+      musicQueue.length > 1 &&
+      lastPlayedMusic &&
+      musicQueue[0] === lastPlayedMusic
+    ) {
+      const swapIndex = musicQueue.findIndex((file) => file !== lastPlayedMusic);
+
+      if (swapIndex > 0) {
+        [musicQueue[0], musicQueue[swapIndex]] = [
+          musicQueue[swapIndex],
+          musicQueue[0]
+        ];
+      }
+    }
+  }
+
+  function getNextMusic() {
+    if (musicList.length === 0) return null;
+
+    if (musicQueue.length === 0) {
+      refillMusicQueue();
+    }
+
+    const file = musicQueue.shift();
+    lastPlayedMusic = file;
+
+    return file;
   }
 
   function playRandomMusic() {
-    if (!enabled || musicList.length === 0) return;
+    if (!enabled) return;
 
-    const index = pickRandomMusicIndex();
-    if (index < 0) return;
+    const file = getNextMusic();
+    if (!file) return;
 
     if (musicAudio) {
       musicAudio.pause();
       musicAudio.removeEventListener("ended", playRandomMusic);
     }
 
-    musicAudio = makeMusicAudio(musicList[index]);
-    musicAudio.play().catch(() => {});
+    console.log("Tocando música:", file);
+
+    musicAudio = makeMusicAudio(file);
+
+    musicAudio.play().catch((err) => {
+      console.warn("Não conseguiu tocar música:", err);
+    });
   }
 
   for (const name of ["cue", "ball", "rail", "pocket"]) {
@@ -3095,6 +3134,7 @@ function createSoundManager() {
 
   function updateButton() {
     if (!audioBtn) return;
+
     audioBtn.classList.toggle("is-on", enabled);
     audioBtn.textContent = enabled ? "Som ligado" : "Ativar som";
     audioBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
@@ -3182,7 +3222,14 @@ function createSoundManager() {
     return enabled;
   }
 
-  return { unlock, disable, toggle, setEnabled, play, isEnabled };
+  return {
+    unlock,
+    disable,
+    toggle,
+    setEnabled,
+    play,
+    isEnabled
+  };
 }
 
 function installAudioUnlock() {
