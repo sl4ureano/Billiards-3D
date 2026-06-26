@@ -47,6 +47,19 @@ const HEAD_STRING_X = -2.1;
 const CUE_BALL_START = new THREE.Vector2(-2.5, 0);
 const CUE_BALL_MIN_PLACE_DISTANCE = BALL_RADIUS * 2.28;
 
+const rawUserAgent = navigator.userAgent || "";
+const IS_TIZEN_TV = /Tizen|SMART-TV|SmartTV|SamsungBrowser|TV Safari/i.test(rawUserAgent);
+const urlQuality = new URLSearchParams(window.location.search).get("quality");
+const TV_PERFORMANCE_MODE = urlQuality === "tv" || (IS_TIZEN_TV && urlQuality !== "high");
+const TV_RENDER_MAX_WIDTH = 1280;
+const TV_RENDER_MAX_HEIGHT = 720;
+const TV_SHADOW_MAP_SIZE = 512;
+const DESKTOP_SHADOW_MAP_SIZE = 1024;
+const PHYSICS_MAX_SUBSTEPS = TV_PERFORMANCE_MODE ? 3 : 6;
+const BALL_SEGMENTS = TV_PERFORMANCE_MODE ? 32 : 48;
+const BALL_RINGS = TV_PERFORMANCE_MODE ? 20 : 32;
+const DECOR_CASTS_SHADOWS = !TV_PERFORMANCE_MODE;
+
 const canvas = document.querySelector("#scene");
 const statusEl = document.querySelector("#status");
 const codeEl = document.querySelector("#code");
@@ -66,16 +79,27 @@ const winnerOverlayEl = document.querySelector("#winnerOverlay");
 const winnerTitleEl = document.querySelector("#winnerTitle");
 const winnerReasonEl = document.querySelector("#winnerReason");
 
+if (TV_PERFORMANCE_MODE) {
+  document.documentElement.classList.add("tv-performance-mode");
+}
+
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x080b0d);
 // Salão mais escuro, com a mesa como foco principal. Mantém fundo não-preto em zoom aberto.
 scene.fog = new THREE.Fog(0x080b0d, 34, 105);
 
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+const renderer = new THREE.WebGLRenderer({
+  canvas,
+  antialias: !TV_PERFORMANCE_MODE,
+  alpha: false,
+  depth: true,
+  stencil: false,
+  powerPreference: "high-performance"
+});
 renderer.setClearColor(0x12181b, 1);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setPixelRatio(TV_PERFORMANCE_MODE ? 1 : Math.min(window.devicePixelRatio || 1, 2));
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = TV_PERFORMANCE_MODE ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.92;
@@ -117,7 +141,10 @@ scene.add(ambient);
 const keyLight = new THREE.DirectionalLight(0xffead0, 0.30);
 keyLight.position.set(-6.5, 8.5, 4.5);
 keyLight.castShadow = true;
-keyLight.shadow.mapSize.set(1024, 1024);
+keyLight.shadow.mapSize.set(
+  TV_PERFORMANCE_MODE ? TV_SHADOW_MAP_SIZE : DESKTOP_SHADOW_MAP_SIZE,
+  TV_PERFORMANCE_MODE ? TV_SHADOW_MAP_SIZE : DESKTOP_SHADOW_MAP_SIZE
+);
 keyLight.shadow.camera.near = 1;
 keyLight.shadow.camera.far = 28;
 scene.add(keyLight);
@@ -303,7 +330,7 @@ function addPoolTablePendantLighting() {
     model.name = "pool-table-light-model";
     model.traverse((child) => {
       if (!child.isMesh) return;
-      child.castShadow = true;
+      child.castShadow = DECOR_CASTS_SHADOWS;
       child.receiveShadow = true;
       if (child.material) {
         child.material.envMapIntensity = 0.75;
@@ -335,7 +362,10 @@ function addPoolTablePendantLightSpots() {
     spot.position.set(x, 3.04, 0);
     spot.target.position.set(x * 0.72, 0.03, 0);
     spot.castShadow = true;
-    spot.shadow.mapSize.set(2048, 2048);
+    spot.shadow.mapSize.set(
+      TV_PERFORMANCE_MODE ? TV_SHADOW_MAP_SIZE : 2048,
+      TV_PERFORMANCE_MODE ? TV_SHADOW_MAP_SIZE : 2048
+    );
     spot.shadow.camera.near = 0.18;
     spot.shadow.camera.far = 8.8;
     spot.shadow.bias = -0.00008;
@@ -358,7 +388,7 @@ function loadPoolRack() {
     rack.name = "pool-rack";
     rack.traverse((child) => {
       if (child.isMesh) {
-        child.castShadow = true;
+        child.castShadow = DECOR_CASTS_SHADOWS;
         child.receiveShadow = true;
         if (child.material) {
           child.material.envMapIntensity = 0.95;
@@ -896,7 +926,7 @@ function addBall(id, number, color, x, y) {
 
   let mesh = ballMeshes.get(id);
   if (!mesh) {
-    const geometry = new THREE.SphereGeometry(BALL_RADIUS, 48, 32);
+    const geometry = new THREE.SphereGeometry(BALL_RADIUS, BALL_SEGMENTS, BALL_RINGS);
     const material = makeBallMaterial(number, color);
     mesh = new THREE.Mesh(geometry, material);
     mesh.castShadow = true;
@@ -961,7 +991,7 @@ function stepPhysics(dt) {
   const movingBefore = isMoving();
   const now = performance.now();
 
-  world.step(PHYSICS_STEP, dt, 6);
+  world.step(PHYSICS_STEP, dt, PHYSICS_MAX_SUBSTEPS);
 
   for (const ball of balls) {
     if (ball.sunk || !ball.body) continue;
@@ -2910,7 +2940,7 @@ function addTrophy(x, y, z, material, parent = scene) {
   cup.add(bowl, stem, base);
   cup.position.set(x, y, z);
   cup.rotation.y = Math.PI / 2;
-  cup.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  cup.traverse((o) => { if (o.isMesh) o.castShadow = DECOR_CASTS_SHADOWS; });
   parent.add(cup);
 }
 
@@ -2946,7 +2976,7 @@ function addSpectator(x, z, facing = 0, shirtColor = 0x446688) {
   group.add(body, head, cap, legA, legB);
   group.position.set(x, 0, z);
   group.rotation.y = facing;
-  group.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  group.traverse((o) => { if (o.isMesh) o.castShadow = DECOR_CASTS_SHADOWS; });
   scene.add(group);
 }
 
@@ -3228,12 +3258,12 @@ function createSoundManager() {
   const musicBase = "/assets/sound/music/";
 
   const files = {
-    cue: "tableHit.wav",
-    ball: "ball_ball.mp3",
-    rail: "ball_edge.mp3",
-    pocket: "ball_fall.mp3",
-    room: "env.mp3",
-    people: "peopleTalking1.wav"
+    cue: "tableHit.ogg",
+    ball: "ball_ball.ogg",
+    rail: "ball_edge.ogg",
+    pocket: "ball_fall.ogg",
+    room: "env.ogg",
+    people: "peopleTalking1.ogg"
   };
 
   const oneShots = new Map();
@@ -3270,9 +3300,9 @@ function createSoundManager() {
 
       const list = await res.json();
 
-      musicList = list.filter((file) =>
-        /\.(mp3|wav|ogg|m4a)$/i.test(file)
-      );
+      musicList = list
+        .filter((file) => /\.(mp3|wav|ogg|m4a)$/i.test(file))
+        .map((file) => file.replace(/\.(mp3|wav|m4a)$/i, ".ogg"));
 
       refillMusicQueue();
     } catch (err) {
@@ -3468,8 +3498,13 @@ function installAudioUnlock() {
 
 function resize() {
   const rect = canvas.getBoundingClientRect();
-  renderer.setSize(rect.width, rect.height, false);
-  camera.aspect = rect.width / Math.max(rect.height, 1);
+  const width = Math.max(1, rect.width);
+  const height = Math.max(1, rect.height);
+  const tvScale = TV_PERFORMANCE_MODE
+    ? Math.min(1, TV_RENDER_MAX_WIDTH / width, TV_RENDER_MAX_HEIGHT / height)
+    : 1;
+  renderer.setSize(Math.floor(width * tvScale), Math.floor(height * tvScale), false);
+  camera.aspect = width / Math.max(height, 1);
   camera.updateProjectionMatrix();
 }
 
