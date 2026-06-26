@@ -1759,3 +1759,105 @@ meter {
   color: rgba(255, 247, 216, .84);
   font-size: clamp(.95rem, 2vw, 1.25rem);
 }
+
+/* v37: lobby cards em linha única com QR Codes maiores */
+.table-shell .topbar {
+  align-items: flex-start !important;
+}
+
+.table-shell .room-panel {
+  width: min(72rem, calc(100vw - 2rem)) !important;
+  max-width: 72rem !important;
+  padding: 0.65rem !important;
+  border-radius: 10px !important;
+}
+
+.table-shell .room-info-clean > .label {
+  font-size: 0.68rem !important;
+  margin-bottom: 0.02rem !important;
+}
+
+.table-shell .room-info-clean > strong {
+  font-size: 0.95rem !important;
+  margin-bottom: 0.45rem !important;
+}
+
+.table-shell .room-links {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 0.5rem !important;
+  align-items: stretch !important;
+}
+
+.table-shell .room-panel a.room-action-card {
+  min-height: 4.55rem !important;
+  padding: 0.5rem 0.55rem !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  grid-template-rows: auto auto !important;
+  gap: 0.04rem 0.5rem !important;
+  align-items: center !important;
+}
+
+.table-shell .room-action-icon {
+  font-size: 1.05rem !important;
+}
+
+.table-shell .room-panel a.room-action-card .room-action-title {
+  font-size: 0.68rem !important;
+  line-height: 1.05 !important;
+  white-space: nowrap !important;
+}
+
+.table-shell .room-panel a.room-action-card small {
+  font-size: 0.58rem !important;
+  line-height: 1.05 !important;
+}
+
+.table-shell .room-panel a.room-action-card .mini-qr {
+  width: 4.1rem !important;
+  min-width: 4.1rem !important;
+  height: 4.1rem !important;
+  min-height: 4.1rem !important;
+  padding: 0.14rem !important;
+  border-radius: 8px !important;
+  grid-column: 2 !important;
+  grid-row: 1 / span 2 !important;
+}
+
+.table-shell .room-panel a.room-action-card .mini-qr img {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+@media (max-width: 1180px) {
+  .table-shell .room-panel {
+    width: min(64rem, calc(100vw - 1rem)) !important;
+  }
+
+  .table-shell .room-panel a.room-action-card .mini-qr {
+    width: 3.65rem !important;
+    min-width: 3.65rem !important;
+    height: 3.65rem !important;
+    min-height: 3.65rem !important;
+  }
+
+  .table-shell .room-panel a.room-action-card .room-action-title {
+    font-size: 0.62rem !important;
+  }
+
+  .table-shell .room-panel a.room-action-card small {
+    font-size: 0.54rem !important;
+  }
+}
+
+@media (max-width: 860px) {
+  .table-shell .room-links {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 540px) {
+  .table-shell .room-links {
+    grid-template-columns: 1fr !important;
+  }
+}

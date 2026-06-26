@@ -682,7 +682,7 @@ function showRoom(session) {
   const controllerVisionUrl = session.controllerVisionUrl || `/controller_visao?code=${encodeURIComponent(session.code)}`;
 
   configureRoomAction(linkEl, controllerUrl, "🎮", "Controle", "Jogar");
-  configureRoomAction(visionControlLinkEl, controllerVisionUrl, "🕺", "Controle visão", "POC Kinect");
+  configureRoomAction(visionControlLinkEl, controllerVisionUrl, "🕺", "Controle visão", "Kinect");
   configureRoomAction(playLinkEl, playUrl, "🖥️", "Mesa remota", "Entrar na partida");
   configureRoomAction(spectatorLinkEl, spectatorUrl, "👁️", "Espectador", "Assistir");
 
