@@ -65,6 +65,7 @@ const statusEl = document.querySelector("#status");
 const codeEl = document.querySelector("#code");
 const qrEl = document.querySelector("#qr");
 const linkEl = document.querySelector("#controlLink");
+const visionControlLinkEl = document.querySelector("#visionControlLink");
 const spectatorLinkEl = document.querySelector("#spectatorLink");
 const playLinkEl = document.querySelector("#playLink");
 const turnEl = document.querySelector("#turn");
@@ -667,7 +668,9 @@ function showFallbackRoom() {
   playUrl.searchParams.set("code", code);
   const spectatorUrl = new URL("/spectator", window.location.origin);
   spectatorUrl.searchParams.set("code", code);
-  showRoom({ code, controllerUrl: url.href, playUrl: playUrl.href, spectatorUrl: spectatorUrl.href });
+  const visionUrl = new URL("/controller_visao", window.location.origin);
+  visionUrl.searchParams.set("code", code);
+  showRoom({ code, controllerUrl: url.href, controllerVisionUrl: visionUrl.href, playUrl: playUrl.href, spectatorUrl: spectatorUrl.href });
 }
 
 function showRoom(session) {
@@ -676,8 +679,10 @@ function showRoom(session) {
   const controllerUrl = session.controllerUrl || `/controller?code=${encodeURIComponent(session.code)}`;
   const playUrl = session.playUrl || `/play?code=${encodeURIComponent(session.code)}`;
   const spectatorUrl = session.spectatorUrl || `/spectator?code=${encodeURIComponent(session.code)}`;
+  const controllerVisionUrl = session.controllerVisionUrl || `/controller_visao?code=${encodeURIComponent(session.code)}`;
 
   configureRoomAction(linkEl, controllerUrl, "🎮", "Controle", "Jogar");
+  configureRoomAction(visionControlLinkEl, controllerVisionUrl, "🕺", "Controle visão", "POC Kinect");
   configureRoomAction(playLinkEl, playUrl, "🖥️", "Mesa remota", "Entrar na partida");
   configureRoomAction(spectatorLinkEl, spectatorUrl, "👁️", "Espectador", "Assistir");
 

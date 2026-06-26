@@ -16,6 +16,7 @@ app.use(express.static(path.join(__dirname, "public")));
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 app.get("/table", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 app.get("/controller", (req, res) => res.sendFile(path.join(__dirname, "public", "controller.html")));
+app.get("/controller_visao", (req, res) => res.sendFile(path.join(__dirname, "public", "controller_visao.html")));
 app.get("/spectator", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 app.get("/viewer", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 app.get("/play", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
@@ -33,6 +34,7 @@ app.get("/new-session", async (req, res) => {
   console.log(`BILLIARDS 3D ROOM: ${code}`);
   console.log(`TABLE      ${details.tableUrl}`);
   console.log(`CONTROL    ${details.controllerUrl}`);
+  console.log(`VISION     ${details.controllerVisionUrl}`);
   console.log(`SPECTATOR  ${details.spectatorUrl}`);
   console.log("=======================================");
   console.log("");
@@ -219,8 +221,9 @@ async function sessionDetails(req, session) {
   const controllerUrl = `${origin}/controller?code=${session.code}`;
   const playUrl = `${origin}/play?code=${session.code}`;
   const spectatorUrl = `${origin}/spectator?code=${session.code}`;
+  const controllerVisionUrl = `${origin}/controller_visao?code=${session.code}`;
   const qr = await QRCode.toDataURL(controllerUrl, { width: 280, margin: 1 });
-  return { code: session.code, tableUrl, controllerUrl, playUrl, spectatorUrl, qr };
+  return { code: session.code, tableUrl, controllerUrl, controllerVisionUrl, playUrl, spectatorUrl, qr };
 }
 
 function makeCode() {

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <title>Billiards 3D Controle por Visão</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #05070b; color: #f4f7fb; overflow: hidden; }
+    body { display: grid; place-items: center; }
+    .shell { position: relative; width: 100vw; height: 100vh; background: radial-gradient(circle at top, #182233, #05070b 70%); }
+    video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    video { opacity: .78; transform: scaleX(-1); }
+    #overlay { pointer-events: none; transform: none; }
+    .hud { position: absolute; left: max(16px, env(safe-area-inset-left)); right: max(16px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); display: flex; justify-content: space-between; gap: 12px; z-index: 2; }
+    .card { border: 1px solid rgba(255,255,255,.16); background: rgba(4, 8, 16, .72); backdrop-filter: blur(14px); border-radius: 18px; padding: 12px 14px; box-shadow: 0 18px 60px rgba(0,0,0,.38); min-width: 230px; max-width: min(46vw, 460px); }
+    .session-card { width: min(46vw, 460px); }
+    .session-card span { min-height: 18px; }
+    .session-card .instruction { color: #9facc2; font-size: 12px; }
+    .session-card #gesture { min-height: 36px; font-weight: 700; color: #f4f7fb; }
+    .card strong { display: block; font-size: 14px; letter-spacing: .08em; text-transform: uppercase; color: #96e6ff; }
+    .card span { display: block; margin-top: 4px; font-size: 13px; color: #d7deeb; }
+    .meters { position: absolute; left: max(16px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 2; display: grid; gap: 8px; min-width: 220px; }
+    .meter { border-radius: 999px; background: rgba(255,255,255,.12); overflow: hidden; height: 12px; border: 1px solid rgba(255,255,255,.12); }
+    .meter > i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #56e39f, #ffe66d, #ff5d73); }
+    .actions { position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 2; display: flex; flex-wrap: wrap; gap: 14px; justify-content: flex-end; max-width: 520px; }
+    button { border: 0; border-radius: 20px; padding: 18px 24px; min-width: 138px; min-height: 64px; color: white; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.22); font-weight: 900; letter-spacing: .02em; font-size: 16px; box-shadow: 0 12px 36px rgba(0,0,0,.28); }
+    button.primary { background: #19b7ff; color: #03111a; }
+    button.danger { background: rgba(255, 74, 103, .22); }
+    .start { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: 24px; background: rgba(1,3,8,.88); }
+    #start[hidden], .start.is-hidden { display: none !important; pointer-events: none !important; }
+    .start-panel { max-width: 560px; border-radius: 28px; padding: 26px; text-align: center; background: linear-gradient(180deg, rgba(23,35,54,.96), rgba(9,14,24,.96)); border: 1px solid rgba(255,255,255,.16); box-shadow: 0 22px 80px rgba(0,0,0,.58); }
+    .start-panel h1 { margin: 0 0 8px; font-size: clamp(28px, 7vw, 46px); }
+    .start-panel p { color: #c8d2e2; line-height: 1.45; }
+    .start-panel ul { text-align: left; color: #dce7f7; line-height: 1.7; }
+    .status-line { font-size: 12px; color: #9facc2; }
+    .crosshair { position: absolute; left: 50%; top: 50%; width: 2px; height: 2px; z-index: 1; }
+    .crosshair::before, .crosshair::after { content: ""; position: absolute; background: rgba(150,230,255,.65); transform: translate(-50%, -50%); }
+    .crosshair::before { width: 40vw; max-width: 420px; height: 1px; }
+    .crosshair::after { width: 1px; height: 34vh; max-height: 260px; }
+    .hint { position: absolute; left: 50%; transform: translateX(-50%); bottom: max(72px, calc(env(safe-area-inset-bottom) + 72px)); z-index: 2; color: #fff; background: rgba(0,0,0,.42); padding: 8px 12px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <video id="video" playsinline muted></video>
+    <canvas id="overlay"></canvas>
+    <div class="crosshair" aria-hidden="true"></div>
+
+    <section class="hud">
+      <div class="card">
+        <strong>Controle visão</strong>
+        <span id="status">Aguardando câmera...</span>
+      </div>
+      <div class="card session-card">
+        <strong id="turn">Sala ----</strong>
+        <span class="instruction">Coloque uma mão em cada área da tela</span>
+        <span id="gesture">Sem movimento</span>
+      </div>
+    </section>
+
+    <section class="meters">
+      <span class="status-line">Movimento</span>
+      <div class="meter"><i id="motionMeter"></i></div>
+      <span class="status-line">Força</span>
+      <div class="meter"><i id="powerMeter"></i></div>
+    </section>
+
+    <section class="actions">
+      <button id="calibrateBtn" type="button">Calibrar</button>
+      <button id="modeBtn" type="button">Modo: mira</button>
+      <button id="cameraBtn" type="button">Reset câmera</button>
+    </section>
+
+    <p class="hint">Modo mira: MIRA mira · FORÇA ajusta força · Modo câmera: MIRA move câmera · FORÇA dá zoom</p>
+
+    <section id="start" class="start">
+      <div class="start-panel">
+        <h1>🕺 Controle por visão</h1>
+        <p>POC estilo Kinect usando tracking das mãos pela câmera do celular. Apoie o celular em um móvel, fique de frente para ele e toque uma vez para iniciar.</p>
+        <ul>
+          <li>Coloque uma mão dentro da área MIRA para controlar somente a mira.</li>
+          <li>Coloque outra mão dentro da área FORÇA/TACADA para controlar somente a força.</li>
+          <li>Na área MIRA, mova para esquerda/direita para girar a mira.</li>
+          <li>No modo mira, a área FORÇA/TACADA ajusta força para cima/baixo.</li>
+          <li>No modo câmera, a área FORÇA/TACADA vira zoom in/zoom out.</li>
+          <li>Feche a mão que está na área FORÇA/TACADA para tacada/confirmar.</li>
+          <li>Para clicar em Calibrar, Modo ou Reset câmera, posicione a mão sobre o botão e feche a mão.</li>
+        </ul>
+        <p id="startStatus" class="status-line">Toque em ativar e permita o uso da câmera.</p>
+        <button id="startBtn" class="primary" type="button">Ativar câmera</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+  <script src="/assets/js/controller_visao.js"></script>
+</body>
+</html>
