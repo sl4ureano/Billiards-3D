@@ -1,6 +1,8 @@
 # 🎱 Laureano Billiards
 
-Um jogo de billiards 3D desenvolvido em **Three.js** com física baseada em **cannon-es**, inspirado nas regras do **8-Ball Pool**. O projeto oferece partidas multiplayer locais utilizando celular como controle, com foco em física realista, arquitetura modular e alta fidelidade na simulação da mesa.
+É um jogo de sinuca 3D desenvolvido em **Three.js** com física baseada em **cannon-es**, inspirado nas regras do **8-Ball Pool**. O projeto foi construído com foco em física realista, arquitetura modular e alta fidelidade na simulação da mesa.
+
+Além do controle tradicional via teclado e mouse, controle pelo celular, o jogo também oferece um modo de **controle por visão computacional**, onde uma webcam ou um smartphone funciona como uma câmera de rastreamento semelhante ao Kinect, permitindo controlar a partida apenas com gestos das mãos. Todo o processamento é realizado diretamente no navegador, sem necessidade de hardware dedicado.
 
 ![Screenshot](./print.png)
 
@@ -8,91 +10,19 @@ Um jogo de billiards 3D desenvolvido em **Three.js** com física baseada em **ca
 
 # ✨ Funcionalidades
 
-* 🎱 Física realista utilizando cannon-es
-* 🪵 Mesa modelada com cushions e jaws físicos
+* 🎱 Física realista 
+* 🪵 Mesa na mesma proporção que a real
 * 🕳️ Caçapas com geometria realista
 * 📱 Controle pelo celular
+* 👁️ Controle por visão computacional
 * 👥 Multiplayer local
 * ⚡ Renderização otimizada
 * 🎵 Sons do ambiente
-* 🌙 Ambiente estilo pub/bar
+* 🌙 Ambiente inspirado em pubs e bares
 * 🤖 IA para partidas
 
 ---
 
-# 🎱 Regras Implementadas (8-Ball)
-
-O jogo segue as regras clássicas do **8-Ball Pool**.
-
-### Mesa aberta
-
-* A mesa inicia aberta.
-* O primeiro jogador que encaçapar uma bola válida define seu grupo:
-
-  * 🔴 Lisas (1–7)
-  * 🟡 Listradas (9–15)
-
----
-
-### Turno
-
-O jogador continua jogando quando:
-
-* encaçapa uma bola do seu grupo;
-* não comete nenhuma falta.
-
-Caso contrário:
-
-* passa a vez ao adversário.
-
----
-
-### Bola do adversário
-
-Caso uma bola do adversário seja encaçapada:
-
-* ela permanece encaçapada;
-* passa a contar para o adversário;
-* se houver falta, o adversário recebe **bola na mão**.
-
----
-
-### Bola branca
-
-Quando a bola branca é encaçapada:
-
-* ocorre falta;
-* o adversário recebe **bola na mão**, podendo posicioná-la livremente para a próxima jogada.
-
----
-
-### Bola 8
-
-A bola 8 somente pode ser encaçapada após todas as bolas do grupo do jogador terem sido eliminadas.
-
-Vitória:
-
-* encaçapar a bola 8 corretamente após limpar seu grupo.
-
-Derrota:
-
-* encaçapar a bola 8 antes da hora;
-* encaçapar a bola 8 junto com a bola branca;
-* cometer falta na tacada em que a bola 8 for encaçapada.
-
----
-
-### Física da mesa
-
-A física da mesa busca reproduzir uma mesa real:
-
-* cushions físicos independentes;
-* jaws (quinas de borracha) nas seis caçapas;
-* tabelas naturais nas quinas;
-* nenhuma correção manual de posição das bolas;
-* toda a resolução de colisões realizada pelo cannon-es.
-
----
 
 # 🚀 Tecnologias
 
@@ -101,6 +31,8 @@ A física da mesa busca reproduzir uma mesa real:
 * JavaScript
 * HTML5
 * CSS3
+* HTML5 Canvas
+* MediaPipe Hand Landmarker
 * WebSockets
 * Node.js
 
@@ -144,7 +76,7 @@ Execute:
 npm start
 ```
 
-Abra:
+Abra no navegador:
 
 ```
 http://localhost:3100
@@ -154,26 +86,51 @@ http://localhost:3100
 
 # 🎮 Controles
 
+O jogo suporta duas formas de interação: **controle tradicional pelo celular** e **controle por visão computacional**.
+
 ## Desktop
 
 | Tecla  | Ação   |
 | ------ | ------ |
 | Mouse  | Mira   |
 | Clique | Tacada |
+| Enter | Reposicionar a bola quando necessario |
 
 ## Mobile
 
-* Controle de direção
-* Ajuste de força
-* Interface otimizada para touchscreen
+O celular funciona como um controle remoto da mesa.
 
-![Screenshot](./print2.jpeg)
+* Controle da direção da mira.
+* Ajuste da força da tacada.
+* Interface otimizada para touchscreen.
+
+![Controle Mobile](./print2.jpeg)
+
+## Visão Computacional
+
+Além do controle tradicional, o jogo também pode ser jogado utilizando **visão computacional**.
+
+Nesse modo, um smartphone permanece posicionado em frente ao jogador funcionando como uma câmera de rastreamento, permitindo controlar a partida apenas com movimentos das mãos, em uma experiência semelhante ao Kinect.
+
+O rastreamento é realizado em tempo real utilizando **MediaPipe Hand Landmarker**, enquanto toda a interpretação dos gestos acontece diretamente no navegador.
+
+### Funcionamento
+
+* A mão esquerda controla a direção da mira.
+* A mão direita controla a força da tacada.
+* Fechar a mão executa a tacada.
+* A calibração define apenas a posição neutra das mãos.
+* Botões da interface também podem ser acionados através de gestos.
+
+Esse modo elimina a necessidade de controles físicos e oferece uma forma natural de interação durante a partida.
+
+![Controle por Visão Computacional](./print3.gif)
 
 ---
 
 # 🏗️ Editor
 
-O projeto possui um editor integrado para criação do ambiente.
+O projeto possui um editor integrado para personalização do ambiente.
 
 É possível:
 
@@ -188,69 +145,24 @@ O projeto possui um editor integrado para criação do ambiente.
 
 # 💡 Iluminação
 
-O ambiente utiliza múltiplas fontes de luz:
+O ambiente utiliza múltiplas fontes de luz para reproduzir uma atmosfera inspirada em pubs e casas de sinuca.
 
 * Hemisphere Light
 * Point Lights
 * Ambient Light
-* Iluminação quente inspirada em pubs
-
----
-
-# 🎨 Cenário
-
-Atualmente o ambiente possui:
-
-* mesas de billiards;
-* rack de tacos;
-* troféus;
-* quadros decorativos;
-* bar;
-* balcões;
-* piso de madeira;
-* paredes detalhadas.
+* Iluminação quente
 
 ---
 
 # ⚙️ Performance
 
-O projeto foi otimizado para manter alta taxa de quadros:
+O projeto foi otimizado para manter uma alta taxa de quadros durante toda a partida.
 
-* reutilização de geometrias;
-* materiais compartilhados;
-* poucas luzes dinâmicas;
-* renderização otimizada;
-* baixo consumo de memória.
-
----
-
-# 📌 Roadmap
-
-## Física
-
-* [x] Física completa das bolas
-* [x] Colisão via cannon-es
-* [x] Jaws físicos
-* [x] Caçapas realistas
-* [x] Física de tabelas
-
-## Gameplay
-
-* [x] Multiplayer local
-* [x] IA
-* [x] Regras principais do 8-Ball
-* [x] Bola na mão
-* [x] Definição automática de grupos
-* [ ] Escolha de caçapa para a bola 8
-* [ ] Detecção completa do primeiro contato da branca
-* [ ] Todas as faltas oficiais da WPA
-
-## Online
-
-* [ ] Chat
-* [ ] Ranking
-* [ ] Torneios
-* [ ] Matchmaking
+* Reutilização de geometrias.
+* Materiais compartilhados.
+* Poucas luzes dinâmicas.
+* Renderização otimizada.
+* Baixo consumo de memória.
 
 ---
 
