@@ -5,41 +5,173 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <title>Billiards 3D Controle por Visão</title>
   <style>
-    :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    :root {
+      color-scheme: dark;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --app-w: 100dvw;
+      --app-h: 100dvh;
+      --safe-l: max(10px, env(safe-area-inset-left));
+      --safe-r: max(10px, env(safe-area-inset-right));
+      --safe-t: max(8px, env(safe-area-inset-top));
+      --safe-b: max(8px, env(safe-area-inset-bottom));
+    }
     * { box-sizing: border-box; }
-    html, body { margin: 0; min-height: 100%; background: #05070b; color: #f4f7fb; overflow: hidden; }
-    body { display: grid; place-items: center; }
-    .shell { position: relative; width: 100vw; height: 100vh; background: radial-gradient(circle at top, #182233, #05070b 70%); }
-    video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-    video { opacity: .78; transform: scaleX(-1); }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: #05070b;
+      color: #f4f7fb;
+      overflow: hidden;
+      overscroll-behavior: none;
+      touch-action: none;
+    }
+    body { position: fixed; inset: 0; }
+    .shell {
+      position: fixed;
+      inset: 0;
+      width: var(--app-w);
+      height: var(--app-h);
+      min-width: 320px;
+      min-height: 240px;
+      overflow: hidden;
+      background: radial-gradient(circle at top, #182233, #05070b 70%);
+    }
+    video, canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    video { opacity: .78; transform: scaleX(-1); transform-origin: center; }
     #overlay { pointer-events: none; transform: none; }
-    .hud { position: absolute; left: max(16px, env(safe-area-inset-left)); right: max(16px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); display: flex; justify-content: space-between; gap: 12px; z-index: 2; }
-    .card { border: 1px solid rgba(255,255,255,.16); background: rgba(4, 8, 16, .72); backdrop-filter: blur(14px); border-radius: 18px; padding: 12px 14px; box-shadow: 0 18px 60px rgba(0,0,0,.38); min-width: 230px; max-width: min(46vw, 460px); }
+    .hud {
+      position: absolute;
+      left: var(--safe-l);
+      right: var(--safe-r);
+      top: var(--safe-t);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: clamp(8px, 1.4vw, 14px);
+      z-index: 2;
+      pointer-events: none;
+    }
+    .card {
+      border: 1px solid rgba(255,255,255,.16);
+      background: rgba(4, 8, 16, .72);
+      backdrop-filter: blur(14px);
+      border-radius: clamp(12px, 1.7vw, 18px);
+      padding: clamp(8px, 1.4vw, 14px);
+      box-shadow: 0 18px 60px rgba(0,0,0,.38);
+      min-width: min(230px, 45vw);
+      max-width: min(46vw, 460px);
+    }
     .session-card { width: min(46vw, 460px); }
     .session-card span { min-height: 18px; }
-    .session-card .instruction { color: #9facc2; font-size: 12px; }
-    .session-card #gesture { min-height: 36px; font-weight: 700; color: #f4f7fb; }
-    .card strong { display: block; font-size: 14px; letter-spacing: .08em; text-transform: uppercase; color: #96e6ff; }
-    .card span { display: block; margin-top: 4px; font-size: 13px; color: #d7deeb; }
-    .meters { position: absolute; left: max(16px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 2; display: grid; gap: 8px; min-width: 220px; }
-    .meter { border-radius: 999px; background: rgba(255,255,255,.12); overflow: hidden; height: 12px; border: 1px solid rgba(255,255,255,.12); }
+    .session-card .instruction { color: #9facc2; font-size: clamp(10px, 1.4vw, 12px); }
+    .session-card #gesture { min-height: 32px; font-weight: 700; color: #f4f7fb; }
+    .card strong {
+      display: block;
+      font-size: clamp(11px, 1.45vw, 14px);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #96e6ff;
+    }
+    .card span { display: block; margin-top: 4px; font-size: clamp(11px, 1.5vw, 13px); color: #d7deeb; }
+    .meters {
+      position: absolute;
+      left: var(--safe-l);
+      bottom: var(--safe-b);
+      z-index: 2;
+      display: grid;
+      gap: 6px;
+      width: clamp(160px, 22vw, 240px);
+      pointer-events: none;
+    }
+    .meter { border-radius: 999px; background: rgba(255,255,255,.12); overflow: hidden; height: clamp(8px, 1.3vw, 12px); border: 1px solid rgba(255,255,255,.12); }
     .meter > i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #56e39f, #ffe66d, #ff5d73); }
-    .actions { position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 2; display: flex; flex-wrap: wrap; gap: 14px; justify-content: flex-end; max-width: 520px; }
-    button { border: 0; border-radius: 20px; padding: 18px 24px; min-width: 138px; min-height: 64px; color: white; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.22); font-weight: 900; letter-spacing: .02em; font-size: 16px; box-shadow: 0 12px 36px rgba(0,0,0,.28); }
+    .actions {
+      position: absolute;
+      right: var(--safe-r);
+      bottom: var(--safe-b);
+      z-index: 2;
+      display: flex;
+      flex-wrap: nowrap;
+      gap: clamp(6px, 1vw, 14px);
+      justify-content: flex-end;
+      max-width: calc(100% - var(--safe-l) - var(--safe-r));
+    }
+    button {
+      border: 0;
+      border-radius: clamp(14px, 1.8vw, 20px);
+      padding: clamp(10px, 1.5vw, 18px) clamp(12px, 2vw, 24px);
+      min-width: clamp(92px, 13vw, 138px);
+      min-height: clamp(44px, 7vh, 64px);
+      color: white;
+      background: rgba(255,255,255,.16);
+      border: 1px solid rgba(255,255,255,.22);
+      font-weight: 900;
+      letter-spacing: .02em;
+      font-size: clamp(12px, 1.6vw, 16px);
+      box-shadow: 0 12px 36px rgba(0,0,0,.28);
+      touch-action: manipulation;
+    }
     button.primary { background: #19b7ff; color: #03111a; }
     button.danger { background: rgba(255, 74, 103, .22); }
-    .start { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: 24px; background: rgba(1,3,8,.88); }
+    .start { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: max(16px, var(--safe-t)) max(16px, var(--safe-r)) max(16px, var(--safe-b)) max(16px, var(--safe-l)); background: rgba(1,3,8,.88); overflow: auto; }
     #start[hidden], .start.is-hidden { display: none !important; pointer-events: none !important; }
-    .start-panel { max-width: 560px; border-radius: 28px; padding: 26px; text-align: center; background: linear-gradient(180deg, rgba(23,35,54,.96), rgba(9,14,24,.96)); border: 1px solid rgba(255,255,255,.16); box-shadow: 0 22px 80px rgba(0,0,0,.58); }
-    .start-panel h1 { margin: 0 0 8px; font-size: clamp(28px, 7vw, 46px); }
+    .start-panel { width: min(92vw, 620px); max-height: calc(var(--app-h) - 24px); overflow: auto; border-radius: clamp(18px, 3vw, 28px); padding: clamp(16px, 2.8vw, 26px); text-align: center; background: linear-gradient(180deg, rgba(23,35,54,.96), rgba(9,14,24,.96)); border: 1px solid rgba(255,255,255,.16); box-shadow: 0 22px 80px rgba(0,0,0,.58); }
+    .start-panel h1 { margin: 0 0 8px; font-size: clamp(24px, 6vw, 46px); }
     .start-panel p { color: #c8d2e2; line-height: 1.45; }
-    .start-panel ul { text-align: left; color: #dce7f7; line-height: 1.7; }
-    .status-line { font-size: 12px; color: #9facc2; }
-    .crosshair { position: absolute; left: 50%; top: 50%; width: 2px; height: 2px; z-index: 1; }
+    .start-panel ul { text-align: left; color: #dce7f7; line-height: 1.6; padding-left: 1.2rem; }
+    .status-line { font-size: clamp(10px, 1.3vw, 12px); color: #9facc2; }
+    .crosshair { position: absolute; left: 50%; top: 50%; width: 2px; height: 2px; z-index: 1; pointer-events: none; }
     .crosshair::before, .crosshair::after { content: ""; position: absolute; background: rgba(150,230,255,.65); transform: translate(-50%, -50%); }
-    .crosshair::before { width: 40vw; max-width: 420px; height: 1px; }
-    .crosshair::after { width: 1px; height: 34vh; max-height: 260px; }
-    .hint { position: absolute; left: 50%; transform: translateX(-50%); bottom: max(72px, calc(env(safe-area-inset-bottom) + 72px)); z-index: 2; color: #fff; background: rgba(0,0,0,.42); padding: 8px 12px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
+    .crosshair::before { width: min(40vw, 420px); height: 1px; }
+    .crosshair::after { width: 1px; height: min(34vh, 260px); }
+    .hint {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: calc(var(--safe-b) + clamp(54px, 8vh, 72px));
+      z-index: 2;
+      max-width: calc(100% - 24px);
+      color: #fff;
+      background: rgba(0,0,0,.42);
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: clamp(10px, 1.4vw, 13px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+    }
+
+    @media (orientation: portrait) {
+      .hud { flex-direction: column; right: auto; width: min(330px, calc(100% - var(--safe-l) - var(--safe-r))); }
+      .card, .session-card { width: 100%; min-width: 0; max-width: none; }
+      .actions { left: var(--safe-l); right: var(--safe-r); justify-content: center; }
+      .meters { width: clamp(140px, 40vw, 210px); }
+      button { min-width: 0; flex: 1 1 0; }
+      .hint { display: none; }
+    }
+
+    @media (max-height: 560px) {
+      .card { padding: 7px 10px; border-radius: 12px; }
+      .session-card .instruction { display: none; }
+      .session-card #gesture { min-height: 18px; }
+      .hint { display: none; }
+      .meters { gap: 4px; width: 170px; }
+      button { min-height: 40px; padding-top: 8px; padding-bottom: 8px; }
+    }
+
+    @media (max-width: 700px) and (orientation: landscape) {
+      .card { min-width: 160px; max-width: 45vw; }
+      .actions { gap: 6px; }
+      button { min-width: 82px; }
+    }
   </style>
 </head>
 <body>

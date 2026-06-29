@@ -2,6 +2,7 @@
   const params = new URLSearchParams(window.location.search);
   const code = String(params.get("code") || "").toUpperCase();
 
+  const shell = document.querySelector(".shell");
   const video = document.querySelector("#video");
   const canvas = document.querySelector("#overlay");
   const ctx = canvas.getContext("2d", { alpha: true });
@@ -62,6 +63,8 @@
   let lastPowerSend = 0;
   let mode = "aim";
   let raf = 0;
+  let appWidth = 0;
+  let appHeight = 0;
 
   let hands = null;
   let handBusy = false;
@@ -91,6 +94,7 @@
     else if (video.srcObject) raf = requestAnimationFrame(tick);
   });
 
+  setupResponsiveViewport();
   connect();
 
   async function startCamera() {
@@ -119,8 +123,7 @@
 
       await waitForVideoToStart();
 
-      resize();
-      window.addEventListener("resize", resize);
+      handleViewportChange();
       await initHandTracking();
       hideStartModal();
       statusEl.textContent = handTrackingReady ? "Câmera + mão ativa" : "Câmera ativa · fallback por movimento";
@@ -349,14 +352,12 @@
   }
 
   function readHand(lm, handedness = "") {
-    // MediaPipe entrega x sem espelho; a UI mostra vídeo espelhado, então espelhamos x também.
-    const wrist = lm[0];
-    const indexMcp = lm[5];
-    const middleMcp = lm[9];
-    const ringMcp = lm[13];
-    const pinkyMcp = lm[17];
-    const palmX = 1 - ((wrist.x + indexMcp.x + middleMcp.x + ringMcp.x + pinkyMcp.x) / 5);
-    const palmY = (wrist.y + indexMcp.y + middleMcp.y + ringMcp.y + pinkyMcp.y) / 5;
+    // MediaPipe retorna coordenadas do frame da câmera.
+    // A tela renderiza esse frame com object-fit: cover e espelhamento horizontal.
+    // Por isso cada landmark precisa ser convertido para o espaço real da interface.
+    const palmPoints = [lm[0], lm[5], lm[9], lm[13], lm[17]].map(mediaPipePointToShellPoint);
+    const palmX = palmPoints.reduce((acc, point) => acc + point.x, 0) / palmPoints.length;
+    const palmY = palmPoints.reduce((acc, point) => acc + point.y, 0) / palmPoints.length;
 
     const extended = [
       isFingerExtended(lm, 8, 6, 5),
@@ -551,7 +552,7 @@
   function pickHandInZone(zone) {
     if (!latestHands.length) return null;
     const candidates = latestHands
-      .filter((hand) => (hand.open || hand.fist) && isInsideZone(hand, zone, ZONE_MARGIN))
+      .filter((hand) => isInsideZone(hand, zone, ZONE_MARGIN))
       .sort((a, b) => distanceToZoneCenter(a, zone) - distanceToZoneCenter(b, zone));
     return candidates[0] || null;
   }
@@ -581,7 +582,7 @@
     const powerHand = data?.powerHand || null;
     const all = data?.all || [];
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, appWidth, appHeight);
     ctx.save();
 
     ctx.strokeStyle = "rgba(150, 230, 255, .30)";
@@ -613,29 +614,29 @@
 
   function drawZoneRect(zone) {
     ctx.strokeRect(
-      canvas.width * zone.x1,
-      canvas.height * zone.y1,
-      canvas.width * (zone.x2 - zone.x1),
-      canvas.height * (zone.y2 - zone.y1)
+      appWidth * zone.x1,
+      appHeight * zone.y1,
+      appWidth * (zone.x2 - zone.x1),
+      appHeight * (zone.y2 - zone.y1)
     );
   }
 
   function drawZoneHeader(zone) {
     ctx.fillRect(
-      canvas.width * zone.x1,
-      canvas.height * zone.y1,
-      canvas.width * (zone.x2 - zone.x1),
+      appWidth * zone.x1,
+      appHeight * zone.y1,
+      appWidth * (zone.x2 - zone.x1),
       34
     );
   }
 
   function drawZoneTitle(label, zone) {
-    ctx.fillText(label, canvas.width * ((zone.x1 + zone.x2) / 2), canvas.height * zone.y1 + 23);
+    ctx.fillText(label, appWidth * ((zone.x1 + zone.x2) / 2), appHeight * zone.y1 + 23);
   }
 
   function drawCalibrationPoint(point, color) {
     ctx.beginPath();
-    ctx.arc(point.x * canvas.width, point.y * canvas.height, 10, 0, Math.PI * 2);
+    ctx.arc(point.x * appWidth, point.y * appHeight, 10, 0, Math.PI * 2);
     ctx.fillStyle = color;
     ctx.fill();
   }
@@ -663,9 +664,10 @@
 
   function findGestureButton(handsList) {
     const buttons = [calibrateBtn, modeBtn, cameraBtn].filter(Boolean);
+    const rectShell = getShellRect();
     for (const hand of handsList) {
-      const x = hand.x * window.innerWidth;
-      const y = hand.y * window.innerHeight;
+      const x = rectShell.left + hand.x * rectShell.width;
+      const y = rectShell.top + hand.y * rectShell.height;
       for (const button of buttons) {
         const rect = button.getBoundingClientRect();
         const pad = 18;
@@ -681,8 +683,8 @@
   }
 
   function drawHandMarker(hand, label) {
-    const x = hand.x * canvas.width;
-    const y = hand.y * canvas.height;
+    const x = hand.x * appWidth;
+    const y = hand.y * appHeight;
     const isPower = label === "FORÇA";
     ctx.beginPath();
     ctx.arc(x, y, hand.fist ? 56 : 36, 0, Math.PI * 2);
@@ -829,17 +831,17 @@
   }
 
   function drawOverlay(total, cx, cy, motion, left, right, top, bottom, centerBurst) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, appWidth, appHeight);
     ctx.save();
     ctx.strokeStyle = "rgba(150, 230, 255, .38)";
     ctx.lineWidth = 2;
     ctx.setLineDash([8, 8]);
-    ctx.strokeRect(canvas.width * 0.18, canvas.height * 0.12, canvas.width * 0.64, canvas.height * 0.76);
+    ctx.strokeRect(appWidth * 0.18, appHeight * 0.12, appWidth * 0.64, appHeight * 0.76);
     ctx.setLineDash([]);
 
     if (total > 0) {
-      const x = canvas.width - (cx / total / SAMPLE_W) * canvas.width;
-      const y = (cy / total / SAMPLE_H) * canvas.height;
+      const x = appWidth - (cx / total / SAMPLE_W) * appWidth;
+      const y = (cy / total / SAMPLE_H) * appHeight;
       const r = 18 + motion * 46;
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -850,10 +852,10 @@
     }
 
     const maxZone = Math.max(left, right, top, bottom, centerBurst, 1);
-    drawZoneBar("L", 16, canvas.height / 2 - 40, left / maxZone);
-    drawZoneBar("R", canvas.width - 74, canvas.height / 2 - 40, right / maxZone);
-    drawZoneBar("↑", canvas.width / 2 - 28, 84, top / maxZone);
-    drawZoneBar("↓", canvas.width / 2 - 28, canvas.height - 132, bottom / maxZone);
+    drawZoneBar("L", 16, appHeight / 2 - 40, left / maxZone);
+    drawZoneBar("R", appWidth - 74, appHeight / 2 - 40, right / maxZone);
+    drawZoneBar("↑", appWidth / 2 - 28, 84, top / maxZone);
+    drawZoneBar("↓", appWidth / 2 - 28, appHeight - 132, bottom / maxZone);
     ctx.restore();
   }
 
@@ -906,12 +908,84 @@
     ws.send(JSON.stringify({ type: "input", action, value }));
   }
 
+  function setupResponsiveViewport() {
+    handleViewportChange();
+    window.addEventListener("resize", handleViewportChange, { passive: true });
+    window.addEventListener("orientationchange", () => setTimeout(handleViewportChange, 180), { passive: true });
+    window.visualViewport?.addEventListener("resize", handleViewportChange, { passive: true });
+    window.visualViewport?.addEventListener("scroll", handleViewportChange, { passive: true });
+  }
+
+  function handleViewportChange() {
+    const viewport = getViewportSize();
+    document.documentElement.style.setProperty("--app-w", `${viewport.width}px`);
+    document.documentElement.style.setProperty("--app-h", `${viewport.height}px`);
+    resize();
+    updateInteractionZones();
+  }
+
+  function getViewportSize() {
+    const vv = window.visualViewport;
+    return {
+      width: Math.max(320, Math.round(vv?.width || window.innerWidth || document.documentElement.clientWidth || 320)),
+      height: Math.max(240, Math.round(vv?.height || window.innerHeight || document.documentElement.clientHeight || 240))
+    };
+  }
+
+  function getShellRect() {
+    const rect = shell?.getBoundingClientRect?.();
+    if (rect?.width && rect?.height) return rect;
+    const viewport = getViewportSize();
+    return { left: 0, top: 0, width: viewport.width, height: viewport.height };
+  }
+
+  function updateInteractionZones() {
+    const { width, height } = getShellRect();
+    const portrait = height > width;
+    const short = height < 560;
+
+    AIM_ZONE.x1 = portrait ? 0.04 : 0.06;
+    AIM_ZONE.x2 = portrait ? 0.48 : 0.46;
+    POWER_ZONE.x1 = portrait ? 0.52 : 0.54;
+    POWER_ZONE.x2 = portrait ? 0.96 : 0.94;
+
+    const y1 = portrait ? 0.24 : short ? 0.22 : 0.16;
+    const y2 = portrait ? 0.74 : short ? 0.76 : 0.84;
+    AIM_ZONE.y1 = POWER_ZONE.y1 = y1;
+    AIM_ZONE.y2 = POWER_ZONE.y2 = y2;
+  }
+
+  function mediaPipePointToShellPoint(point) {
+    const rect = getShellRect();
+    const videoWidth = video.videoWidth || rect.width;
+    const videoHeight = video.videoHeight || rect.height;
+    const scale = Math.max(rect.width / videoWidth, rect.height / videoHeight);
+    const drawWidth = videoWidth * scale;
+    const drawHeight = videoHeight * scale;
+    const offsetX = (rect.width - drawWidth) / 2;
+    const offsetY = (rect.height - drawHeight) / 2;
+
+    const videoX = point.x * videoWidth;
+    const videoY = point.y * videoHeight;
+    const screenXBeforeMirror = offsetX + videoX * scale;
+    const screenY = offsetY + videoY * scale;
+    const screenX = rect.width - screenXBeforeMirror;
+
+    return {
+      x: clamp(screenX / rect.width, 0, 1),
+      y: clamp(screenY / rect.height, 0, 1)
+    };
+  }
+
   function resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-    canvas.width = Math.floor(window.innerWidth * dpr);
-    canvas.height = Math.floor(window.innerHeight * dpr);
-    canvas.style.width = `${window.innerWidth}px`;
-    canvas.style.height = `${window.innerHeight}px`;
+    const rect = getShellRect();
+    appWidth = Math.max(1, Math.round(rect.width));
+    appHeight = Math.max(1, Math.round(rect.height));
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.floor(appWidth * dpr);
+    canvas.height = Math.floor(appHeight * dpr);
+    canvas.style.width = `${appWidth}px`;
+    canvas.style.height = `${appHeight}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
